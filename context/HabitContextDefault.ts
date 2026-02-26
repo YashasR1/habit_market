@@ -1,0 +1,28 @@
+export const defaultHabitContext = {
+  dailyHabits: [],
+  chartData: [],
+  habitHistory: {},
+  userName: '',
+  userAvatar: 'TrendingUp',
+  notes: [], 
+  folders: [],
+  sharedFolders: [],
+  clientProjects: [],
+  isLoaded: false,
+  // Dummy functions to prevent crash if called
+  updateMarket: () => {},
+  toggleHabit: () => {},
+  addHabit: () => {},
+  removeHabit: () => {},
+  updateUserName: () => {},
+  updateUserAvatar: () => {},
+  resetAppData: () => {},
+  deleteNote: (id: string) => {},
+  addFolder: (name: string, section?: string) => {},
+  deleteFolder: (id: string, name: string) => {},
+  addClientProject: (name: string, folderId: string) => {},
+  deleteClientProject: (id: string, name: string) => {},
+  updateClientProject: (id: string, name: string, updates: any) => {},
+  addProjectMedia: (projectId: string, projectName: string, mediaItem: any) => {},
+  migrateSharedFolder: () => {}
+};
