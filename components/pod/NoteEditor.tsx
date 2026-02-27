@@ -88,8 +88,6 @@ export const NoteEditor = ({
             contentContainerStyle={{ paddingBottom: 100 }}
             showsVerticalScrollIndicator={false}
         >
-            {/* Banner / Cover Placeholder */}
-            <View style={styles.coverPlaceholder} />
 
             <TextInput
             style={styles.canvasTitle}
@@ -207,7 +205,7 @@ const styles = StyleSheet.create({
   mediaBtnText: { color: Colors.text, fontSize: 13, fontWeight: '600' },
   
   // Media Grid
-  mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
+  mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 10 },
   mediaWrapper: { width: MEDIA_ITEM_SIZE },
   mediaItem: { width: MEDIA_ITEM_SIZE, height: MEDIA_ITEM_SIZE, borderRadius: 10, backgroundColor: '#0F172A' },
   mediaFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingHorizontal: 2 },

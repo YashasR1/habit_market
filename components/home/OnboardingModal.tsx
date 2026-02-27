@@ -14,7 +14,9 @@ import { Colors } from "../../constants/Colors";
 interface OnboardingModalProps {
   visible: boolean;
   userName: string;
-  updateUserName: (name: string) => Promise<{ success: boolean; error?: string } | void>;
+  updateUserName: (
+    name: string,
+  ) => Promise<{ success: boolean; error?: string } | void>;
   onClose: () => void;
 }
 
@@ -24,21 +26,31 @@ export const OnboardingModal = ({
   updateUserName,
   onClose,
 }: OnboardingModalProps) => {
+  // Initialize to an empty string instead of the context's default "Trader"
+  const [localName, setLocalName] = React.useState("");
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  // Sync prop changes nicely
+  React.useEffect(() => {
+    // Only set if we actually have a non-default username (e.g. they registered previously)
+    if (userName && userName !== "Trader" && !localName) {
+      setLocalName(userName);
+    }
+  }, [userName, localName]);
+
   const handleTradePress = async () => {
-    if (!userName.trim()) {
+    if (!localName.trim()) {
       setErrorMsg("Please enter a username.");
       return;
     }
 
     setIsSubmitting(true);
     setErrorMsg(null);
-    
+
     // updateUserName handles both local save and Firebase validation
-    const result = await updateUserName(userName);
-    
+    const result = await updateUserName(localName);
+
     setIsSubmitting(false);
 
     if (result && !result.success) {
@@ -69,13 +81,16 @@ export const OnboardingModal = ({
           <View style={{ width: "100%", marginBottom: 10 }}>
             <Text style={styles.label}>What should we call you?</Text>
             <TextInput
-              style={[styles.input, errorMsg ? { borderColor: Colors.error, borderWidth: 1 } : {}]}
+              style={[
+                styles.input,
+                errorMsg ? { borderColor: Colors.error, borderWidth: 1 } : {},
+              ]}
               placeholder="e.g. Trader, Builder, Yash..."
               placeholderTextColor={Colors.textMuted}
-              value={userName} // Bind to context variable
+              value={localName} // Bind to local state instead of context directly
               onChangeText={(text) => {
                 setErrorMsg(null);
-                updateUserName(text); // Still update state as they type
+                setLocalName(text);
               }}
               autoCapitalize="none"
               editable={!isSubmitting}
@@ -83,13 +98,21 @@ export const OnboardingModal = ({
           </View>
 
           {errorMsg && (
-            <Text style={{ color: Colors.error, fontSize: 13, alignSelf: 'flex-start', marginBottom: 15, paddingHorizontal: 5 }}>
+            <Text
+              style={{
+                color: Colors.error,
+                fontSize: 13,
+                alignSelf: "flex-start",
+                marginBottom: 15,
+                paddingHorizontal: 5,
+              }}
+            >
               {errorMsg}
             </Text>
           )}
 
-          <Pressable 
-            style={[styles.onboardingBtn, isSubmitting && { opacity: 0.7 }]} 
+          <Pressable
+            style={[styles.onboardingBtn, isSubmitting && { opacity: 0.7 }]}
             onPress={handleTradePress}
             disabled={isSubmitting}
           >

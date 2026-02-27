@@ -195,7 +195,6 @@ export const ProjectCanvas = ({
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.coverPlaceholder} />
         <View style={styles.headerRow}>
           <TextInput
             style={[styles.canvasTitle, { flex: 1 }]}

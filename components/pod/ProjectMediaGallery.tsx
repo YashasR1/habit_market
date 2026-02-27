@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
-  mediaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  mediaGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10 },
   mediaWrapper: { width: MEDIA_ITEM_SIZE },
   mediaItem: {
     width: MEDIA_ITEM_SIZE,
