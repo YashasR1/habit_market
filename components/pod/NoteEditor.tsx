@@ -4,7 +4,6 @@ import { Image as ImageIcon, Video as VideoIcon } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
-import { useMediaUpload } from '../../context/hooks/useMediaUpload';
 import { VideoItem, MEDIA_ITEM_SIZE } from './MediaItems';
 
 interface NoteEditorProps {
@@ -31,8 +30,10 @@ export const NoteEditor = ({
     addNoteMedia,
     userName
 }: NoteEditorProps) => {
-    const { uploading, uploadMedia } = useMediaUpload();
     const media = activeNote?.media || [];
+
+    // Local loading state just to prevent double taps
+    const [isProcessing, setIsProcessing] = React.useState(false);
 
     const requestPermission = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -45,41 +46,48 @@ export const NoteEditor = ({
 
     const handlePickImage = async () => {
         if (!(await requestPermission())) return;
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
-            allowsEditing: false,
-        });
-        if (!result.canceled && result.assets[0]) {
-            await handleUpload(result.assets[0].uri, 'image');
+        setIsProcessing(true);
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                quality: 0.8,
+                allowsEditing: false,
+            });
+            if (!result.canceled && result.assets[0]) {
+                await handleUpload(result.assets[0].uri, 'image');
+            }
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     const handlePickVideo = async () => {
         if (!(await requestPermission())) return;
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['videos'],
-            quality: 0.8,
-            allowsEditing: false,
-            videoMaxDuration: 120,
-        });
-        if (!result.canceled && result.assets[0]) {
-            await handleUpload(result.assets[0].uri, 'video');
+        setIsProcessing(true);
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['videos'],
+                quality: 0.8,
+                allowsEditing: false,
+                videoMaxDuration: 120,
+            });
+            if (!result.canceled && result.assets[0]) {
+                await handleUpload(result.assets[0].uri, 'video');
+            }
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     const handleUpload = async (uri: string, type: 'image' | 'video') => {
-        const downloadUrl = await uploadMedia(uri, type, activeNote.id);
-        if (downloadUrl) {
-            addNoteMedia(activeNote.id, {
-                url: downloadUrl,
-                type,
-                uploadedBy: userName || 'You',
-                uploadedAt: new Date().toISOString(),
-            });
-        } else {
-            Alert.alert('Upload failed', 'Could not upload the file. Please try again.');
-        }
+        // Since Library notes are private, we DO NOT upload to Firebase.
+        // We just save the local file URI directly to the local SQLite database.
+        addNoteMedia(activeNote.id, {
+            url: uri,
+            type,
+            uploadedBy: userName || 'You',
+            uploadedAt: new Date().toISOString(),
+        });
     };
 
     return (
@@ -127,22 +135,22 @@ export const NoteEditor = ({
             <View style={styles.mediaBlock}>
                 <View style={styles.mediaHeader}>
                     <Text style={styles.mediaLabel}>Media ({media.length})</Text>
-                    {uploading && <ActivityIndicator size="small" color={Colors.primary} />}
+                    {isProcessing && <ActivityIndicator size="small" color={Colors.primary} />}
                 </View>
                 
                 <View style={styles.mediaRow}>
                     <TouchableOpacity 
-                        style={[styles.mediaBtn, uploading && { opacity: 0.5 }]} 
+                        style={[styles.mediaBtn, isProcessing && { opacity: 0.5 }]} 
                         onPress={handlePickImage}
-                        disabled={uploading}
+                        disabled={isProcessing}
                     >
                         <ImageIcon color={Colors.primary} size={20} />
                         <Text style={styles.mediaBtnText}>Add Image</Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
-                        style={[styles.mediaBtn, uploading && { opacity: 0.5 }]} 
+                        style={[styles.mediaBtn, isProcessing && { opacity: 0.5 }]} 
                         onPress={handlePickVideo}
-                        disabled={uploading}
+                        disabled={isProcessing}
                     >
                         <VideoIcon color={Colors.primary} size={20} />
                         <Text style={styles.mediaBtnText}>Add Video</Text>

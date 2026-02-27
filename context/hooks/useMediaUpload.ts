@@ -18,9 +18,20 @@ export const useMediaUpload = () => {
   ): Promise<string | null> => {
     setUploading(true);
     try {
-      // In Expo 50+, fetch() handles local file:// URIs natively and correctly returns a Web Blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Use XMLHttpRequest as fetch() for local file:// URIs is known to randomly fail in React Native release builds on Android
+      const blob: Blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          console.error("XHR blob conversion error:", e);
+          reject(new TypeError("Local file conversion failed"));
+        };
+        xhr.responseType = "blob";
+        xhr.open("GET", uri, true);
+        xhr.send(null);
+      });
 
       // Build a unique filename
       const ext = type === "video" ? "mp4" : "jpg";
@@ -33,8 +44,10 @@ export const useMediaUpload = () => {
       // Return public download URL
       const url = await getDownloadURL(storageRef);
       return url;
-    } catch (e) {
+    } catch (e: any) {
       console.error("Media upload failed:", e);
+      // We are showing the exact error message so the user knows if it's a Permission/Rules error or a File/Blob error
+      alert(`Upload Failed: ${e.message}`);
       return null;
     } finally {
       setUploading(false);
