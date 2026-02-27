@@ -50,7 +50,9 @@ export const initDB = () => {
         label TEXT NOT NULL,
         icon TEXT,
         type TEXT,
-        section TEXT
+        section TEXT,
+        assignedTo TEXT,
+        createdBy TEXT
       );
 
       -- Notes
@@ -73,7 +75,9 @@ export const initDB = () => {
         checklist TEXT, -- JSON array string
         media TEXT, -- JSON array string
         lastEditedBy TEXT,
-        lastEditedAt TEXT
+        lastEditedAt TEXT,
+        assignedTo TEXT,
+        createdBy TEXT
       );
 
       -- Sync Queue (Outbox Pattern)

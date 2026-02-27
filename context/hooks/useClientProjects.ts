@@ -62,6 +62,7 @@ export const useClientProjects = (triggerSync?: () => void) => {
     name: string,
     folderId: string,
     actor: string,
+    assignedTo?: string,
   ) => {
     const newProject = {
       id: Math.random().toString(36).substring(2) + Date.now().toString(36),
@@ -72,12 +73,14 @@ export const useClientProjects = (triggerSync?: () => void) => {
       media: [],
       lastEditedBy: actor,
       lastEditedAt: new Date().toISOString(),
+      assignedTo: assignedTo || null,
+      createdBy: actor,
     };
 
     try {
       db.withTransactionSync(() => {
         db.runSync(
-          "INSERT INTO client_projects (id, name, type, folderId, content, checklist, media, lastEditedBy, lastEditedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO client_projects (id, name, type, folderId, content, checklist, media, lastEditedBy, lastEditedAt, assignedTo, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           newProject.id,
           newProject.name,
           null,
@@ -87,8 +90,10 @@ export const useClientProjects = (triggerSync?: () => void) => {
           "[]",
           newProject.lastEditedBy,
           newProject.lastEditedAt,
+          newProject.assignedTo,
+          newProject.createdBy,
         );
-        queueSync("INSERT", "projects", newProject.id, newProject);
+        queueSync("INSERT", "client_projects", newProject.id, newProject);
       });
       setClientProjects((prev) => [...prev, newProject]);
       return newProject.id;
@@ -232,24 +237,28 @@ export const useClientProjects = (triggerSync?: () => void) => {
     }
   };
 
-  const addSharedFolder = async (name: string, actor: string) => {
+  const addSharedFolder = async (name: string, actor: string, assignedTo?: string) => {
     const newFolder = {
       id: Math.random().toString(36).substring(2),
       label: name,
       icon: "Folder",
       type: "user",
       section: "assign",
+      assignedTo: assignedTo || null,
+      createdBy: actor,
     };
 
     try {
       db.withTransactionSync(() => {
         db.runSync(
-          "INSERT INTO folders (id, label, icon, type, section) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO folders (id, label, icon, type, section, assignedTo, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?)",
           newFolder.id,
           newFolder.label,
           newFolder.icon,
           newFolder.type,
           newFolder.section,
+          newFolder.assignedTo,
+          newFolder.createdBy,
         );
         queueSync("INSERT", "folders", newFolder.id, newFolder, triggerSync);
       });

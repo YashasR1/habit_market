@@ -3,9 +3,10 @@ import React, { createContext, useContext } from 'react';
 import { calculateCandle } from '../utils/habitMarketEngine';
 import * as Haptics from 'expo-haptics';
 import { Sounds } from '../utils/sounds';
-import { db } from '../firebaseConfig';
+import { db, auth } from '../firebaseConfig';
+import { signInAnonymously } from 'firebase/auth';
 
-import { collection, onSnapshot, query, orderBy, limit, setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, setDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 // Hooks
 import { useHabitPersistence } from './hooks/useHabitPersistence';
@@ -24,6 +25,7 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
       chartData, setChartData,
       habitHistory, setHabitHistory,
       userName, setUserName,
+      isUsernameClaimed, setIsUsernameClaimed,
       userAvatar, setUserAvatar,
       notes, setNotes,
       folders, setFolders,
@@ -53,6 +55,11 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
 
   // 3. Weekly Stats Hook
   const { calculateStreak, getWeeklyComparisonData, getWeeklyStats } = useWeeklyStats(dailyHabits, habitHistory);
+
+  // --- AUTHENTICATION ---
+  React.useEffect(() => {
+     signInAnonymously(auth).catch(err => console.error("Anonymous auth failed:", err));
+  }, []);
 
   // --- MIGRATION: Local Assign folders -> Firestore ---
   React.useEffect(() => {
@@ -133,8 +140,33 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const updateUserName = (name: string) => {
-    setUserName(name);
+  const updateUserName = async (name: string) => {
+    const formattedName = name.trim().toLowerCase();
+    
+    if (!isOnline) {
+       setUserName(formattedName);
+       setIsUsernameClaimed(false);
+       return { success: true }; 
+    }
+    
+    try {
+        if (!auth.currentUser) await signInAnonymously(auth);
+        
+        const userRef = doc(db, 'users', formattedName);
+        const docSnap = await getDoc(userRef);
+        
+        if (docSnap.exists() && docSnap.data().uid !== auth.currentUser?.uid) {
+            return { success: false, error: 'Username is already taken globally.' };
+        }
+        
+        await setDoc(userRef, { uid: auth.currentUser?.uid, claimedAt: serverTimestamp() }, { merge: true });
+        setUserName(formattedName);
+        setIsUsernameClaimed(true);
+        return { success: true };
+    } catch (e) {
+        console.error('Failed to claim username:', e);
+        return { success: false, error: 'Network error. Try again later.' };
+    }
   };
 
   const updateUserAvatar = (avatar: string) => {
@@ -319,9 +351,9 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
 
-  const addFolder = (name: string, section: string = 'library') => {
+  const addFolder = (name: string, section: string = 'library', assignedTo?: string) => {
       if (section === 'assign') {
-          addSharedFolder(name, userName);
+          addSharedFolder(name, userName, assignedTo);
       } else {
           const newFolder = {
               id: Math.random().toString(36).substring(7),
@@ -370,6 +402,7 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
       isOnline,
       isSyncing,
       userName,
+      isUsernameClaimed,
       updateUserName,
       userAvatar,
       updateUserAvatar,
@@ -382,12 +415,19 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
       deleteNote,
       getWeeklyComparisonData,
       getWeeklyStats,
-      folders: [...folders.filter(f => f.section !== 'assign'), ...sharedFolders],
+      folders: [
+          ...folders.filter((f: any) => f.section !== 'assign'), 
+          ...sharedFolders.filter((f: any) => !f.createdBy || f.createdBy.toLowerCase() === userName.toLowerCase() || (f.assignedTo && f.assignedTo.toLowerCase() === userName.toLowerCase()))
+      ],
       addFolder,
       deleteFolder,
-      clientProjects,
-      sharedFolders,
-      addClientProject: (name: string, folderId: string) => addClientProject(name, folderId, userName),
+      clientProjects: clientProjects.filter((p: any) => !p.createdBy || p.createdBy.toLowerCase() === userName.toLowerCase() || (p.assignedTo && p.assignedTo.toLowerCase() === userName.toLowerCase())),
+      sharedFolders: sharedFolders.filter((f: any) => !f.createdBy || f.createdBy.toLowerCase() === userName.toLowerCase() || (f.assignedTo && f.assignedTo.toLowerCase() === userName.toLowerCase())),
+      addClientProject: (name: string, folderId: string) => {
+          const folder = sharedFolders.find(f => f.id === folderId) || folders.find(f => f.id === folderId);
+          const assignedTo = folder?.assignedTo;
+          addClientProject(name, folderId, userName, assignedTo);
+      },
       deleteClientProject: (id: string, name: string) => deleteClientProject(id, name, userName),
       updateClientProject: (id: string, name: string, updates: any) => updateClientProject(id, name, updates, userName),
       addProjectMedia: (projectId: string, projectName: string, mediaItem: any) => addProjectMedia(projectId, projectName, mediaItem, userName),

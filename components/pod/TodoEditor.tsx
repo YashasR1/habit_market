@@ -30,7 +30,9 @@ export const TodoEditor = ({ editorContent, setEditorContent }: TodoEditorProps)
             if (editorContent) {
                 parsedData = JSON.parse(editorContent);
             }
-        } catch (e) {}
+        } catch {
+            // ignore parse error
+        }
 
         const todayDate = new Date();
         // Reset time to midnight for accurate day comparisons
@@ -75,7 +77,7 @@ export const TodoEditor = ({ editorContent, setEditorContent }: TodoEditorProps)
         if (editorContent && filteredList.length !== (Array.isArray(parsedData) ? parsedData.length : 1)) {
             setEditorContent(JSON.stringify(filteredList));
         }
-    }, [editorContent]);
+    }, [editorContent, setEditorContent]);
 
     const createNewDay = (date: Date): TodoData => {
         return {
@@ -252,7 +254,7 @@ export const TodoEditor = ({ editorContent, setEditorContent }: TodoEditorProps)
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, paddingHorizontal: 25, paddingTop: 10 },
+    container: { flex: 1, padding: 25 },
     paper: {
         backgroundColor: Colors.surface,
         borderRadius: 12,

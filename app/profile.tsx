@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, TouchableOpacity, Modal, Switch, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Modal, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronRight, ChevronLeft, Settings, FileBarChart, LogOut, Archive, Bell, Edit2, Check, PauseCircle, Play, Undo2, X, Trash2, 
+import { ChevronRight, ChevronLeft, Settings, FileBarChart, Archive, Edit2, Check, Play, Undo2, X, Trash2, 
     TrendingUp, Shield, Rocket, Diamond, Crown, Bot, Zap
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,28 +23,41 @@ const AVATARS = [
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { userName, updateUserName, dailyHabits, resumeHabit, archiveHabit, removeHabit, userAvatar, updateUserAvatar, resetAppData,
+  const { userName, updateUserName, dailyHabits, resumeHabit, removeHabit, userAvatar, updateUserAvatar, resetAppData,
     // #2: Wire settings from context
     soundEnabled, setSoundEnabled, hapticsEnabled, setHapticsEnabled
   } = useHabits();
   
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(userName);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Modal States
   const [isPausedVisible, setIsPausedVisible] = useState(false);
-  const [isArchivedVisible, setIsArchivedVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isAvatarVisible, setIsAvatarVisible] = useState(false);
-
-  // #2: Settings are now live from context — no local shadow state needed
 
   // Sync tempName
   useEffect(() => { setTempName(userName); }, [userName]);
 
-  const handleSave = () => {
-      if (tempName.trim().length > 0) updateUserName(tempName.trim());
-      setIsEditing(false);
+  const handleSave = async () => {
+      const newName = tempName.trim();
+      if (newName.length === 0) {
+          setIsEditing(false);
+          return;
+      }
+      if (newName === userName) {
+          setIsEditing(false);
+          return;
+      }
+
+      const result = await updateUserName(newName);
+      if (result.success) {
+          setIsEditing(false);
+          setErrorMsg('');
+      } else {
+          setErrorMsg(result.error);
+      }
   };
 
   const pausedHabits = dailyHabits.filter((h: any) => h.status === 'paused');
@@ -77,13 +90,17 @@ export default function ProfileScreen() {
         
         <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
             {isEditing ? (
-                <TextInput 
-                    value={tempName}
-                    onChangeText={setTempName}
-                    style={[styles.userNameInput]}
-                    autoFocus
-                    onSubmitEditing={handleSave}
-                />
+                <View style={{ position: 'relative' }}>
+                    <TextInput 
+                        value={tempName}
+                        onChangeText={setTempName}
+                        style={[styles.userNameInput]}
+                        autoFocus
+                        onSubmitEditing={handleSave}
+                        autoCapitalize="none"
+                    />
+                    {errorMsg ? <Text style={{ color: Colors.error, fontSize: 11, position: 'absolute', bottom: -15 }}>{errorMsg}</Text> : null}
+                </View>
             ) : (
                 <Text style={styles.userName}>{userName}</Text>
             )}

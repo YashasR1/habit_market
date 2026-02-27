@@ -13,6 +13,9 @@ class SoundService {
         if (!this.player) {
              const newSource = { uri: POP_SOUND_URI };
              this.player = createAudioPlayer(newSource);
+        } else {
+             // Reset back to the start so it plays again on subsequent clicks
+             await this.player.seekTo(0);
         }
         
         // With expo-audio, we just call play()

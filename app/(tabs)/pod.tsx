@@ -60,6 +60,7 @@ export default function PodScreen() {
   const [isFolderModalVisible, setIsFolderModalVisible] = useState(false);
   const [targetSection, setTargetSection] = useState<'library' | 'assign'>('library');
   const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderAssignee, setNewFolderAssignee] = useState('');
   const [folderToDelete, setFolderToDelete] = useState<any>(null);
 
   // Client Project State
@@ -214,6 +215,16 @@ export default function PodScreen() {
                     onChangeText={setNewFolderName}
                     autoFocus
                 />
+                {targetSection === 'assign' && (
+                    <TextInput 
+                        style={styles.input} 
+                        placeholder="Assign To (Username)" 
+                        placeholderTextColor={Colors.textMuted}
+                        value={newFolderAssignee}
+                        onChangeText={setNewFolderAssignee}
+                        autoCapitalize="none"
+                    />
+                )}
                 <View style={styles.modalButtons}>
                     <TouchableOpacity onPress={() => setIsFolderModalVisible(false)}>
                         <Text style={{ color: Colors.textSecondary, padding: 10 }}>Cancel</Text>
@@ -222,8 +233,9 @@ export default function PodScreen() {
                         style={styles.createBtn}
                         onPress={() => {
                             if (newFolderName.trim()) {
-                                addFolder(newFolderName.trim(), targetSection);
+                                addFolder(newFolderName.trim(), targetSection, newFolderAssignee.trim());
                                 setNewFolderName('');
+                                setNewFolderAssignee('');
                                 setIsFolderModalVisible(false);
                             }
                         }}

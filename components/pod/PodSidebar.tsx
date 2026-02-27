@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { 
-    ChevronDown, ChevronRight, Trash2, FileText, Briefcase, Plus, MoreVertical,
-    Folder, PenTool
+    ChevronDown, ChevronRight, Trash2, FileText, Briefcase, Plus, MoreVertical
 } from 'lucide-react-native';
 import { EmptyState } from '../common/EmptyState';
 
@@ -47,6 +46,16 @@ export const PodSidebar = ({
     confirmDeleteProject
 }: PodSidebarProps) => {
 
+    const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+
+    const handleFolderPress = (id: string) => {
+        onSelectFolder(id);
+        setExpandedFolders(prev => ({
+            ...prev,
+            [id]: activeCategory === id ? !(prev[id] !== false) : true
+        }));
+    };
+
     if (!isSidebarOpen) return null;
 
     const libraryFolders = folders.filter((f: any) => !f.section || f.section === 'library');
@@ -55,6 +64,7 @@ export const PodSidebar = ({
     const renderFolderList = (folderList: any[], isLibrary: boolean) => {
         return folderList.map((cat: any) => {
           const isActive = activeCategory === cat.id; 
+          const isExpanded = expandedFolders[cat.id] !== undefined ? expandedFolders[cat.id] : isActive;
           // Protect core default folders from deletion even if their type was historically set to 'user'
           const isSystem = cat.type === 'system' || ['all', 'idea', 'note', 'todo'].includes(cat.id);
           
@@ -69,32 +79,32 @@ export const PodSidebar = ({
               <View key={cat.id}>
                   <TouchableOpacity 
                       style={[styles.sidebarItem, isActive && styles.sidebarItemActive]}
-                      onPress={() => onSelectFolder(cat.id)}
+                      onPress={() => handleFolderPress(cat.id)}
                   >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                          {isActive ? 
-                              <ChevronDown size={14} color={Colors.textSecondary} /> : 
-                              <ChevronRight size={14} color={Colors.textSecondary} />
+                          {isExpanded ? 
+                              <ChevronDown size={16} color={Colors.textSecondary} /> : 
+                              <ChevronRight size={16} color={Colors.textSecondary} />
                           }
                           <Text style={[styles.sidebarItemText, isActive && styles.sidebarItemTextActive]}>{cat.label}</Text>
                       </View>
                       
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <Text style={{ color: Colors.textMuted, fontSize: 11 }}>{items.length}</Text>
+                          <Text style={{ color: Colors.textMuted, fontSize: 13 }}>{items.length}</Text>
                           {!isSystem && isActive && (
                               <TouchableOpacity onPress={() => confirmDeleteFolder(cat.id)}>
-                                  <Trash2 size={12} color={Colors.error} />
+                                  <Trash2 size={14} color={Colors.error} />
                               </TouchableOpacity>
                           )}
                       </View>
                   </TouchableOpacity>
                   
                   {/* Nested Items */}
-                  {isActive && (
+                  {isExpanded && (
                       <View style={{ paddingLeft: 24 }}>
                           {items.length === 0 ? (
                               <View style={{ paddingVertical: 8, paddingHorizontal: 15 }}>
-                                  <Text style={{ color: Colors.textMuted, fontSize: 12, fontStyle: 'italic' }}>Empty</Text>
+                                  <Text style={{ color: Colors.textMuted, fontSize: 13, fontStyle: 'italic' }}>Empty</Text>
                               </View>
                           ) : (
                               items.map((item: any) => {
@@ -106,7 +116,7 @@ export const PodSidebar = ({
                                               style={[styles.noteItem, selectedNote?.id === item.id && styles.noteItemActive]}
                                               onPress={() => handleSelectNote(item)}
                                           >
-                                              <FileText size={14} color={selectedNote?.id === item.id ? Colors.text : Colors.textSecondary} />
+                                              <FileText size={16} color={selectedNote?.id === item.id ? Colors.text : Colors.textSecondary} />
                                               <Text style={[styles.noteItemText, selectedNote?.id === item.id && styles.noteItemTextActive]} numberOfLines={1}>
                                                   {item.title || 'Untitled'}
                                               </Text>
@@ -121,13 +131,13 @@ export const PodSidebar = ({
                                               style={[styles.noteItem, isProjectActive && styles.noteItemActive]}
                                               onPress={() => handleSelectProject(item)}
                                           >
-                                              <Briefcase size={14} color={isProjectActive ? Colors.primary : Colors.textSecondary} />
+                                              <Briefcase size={16} color={isProjectActive ? Colors.primary : Colors.textSecondary} />
                                               <Text style={[styles.noteItemText, isProjectActive && styles.noteItemTextActive]} numberOfLines={1}>
                                                   {item.name}
                                               </Text>
                                               {isProjectActive && (
                                                   <TouchableOpacity onPress={() => confirmDeleteProject(item.id)} style={{ marginLeft: 'auto' }}>
-                                                      <Trash2 size={12} color={Colors.error} />
+                                                      <Trash2 size={14} color={Colors.error} />
                                                   </TouchableOpacity>
                                               )}
                                           </TouchableOpacity>
@@ -141,7 +151,7 @@ export const PodSidebar = ({
                               style={[styles.noteItem, { opacity: 0.6 }]}
                               onPress={() => isLibrary ? handleCreateNew() : handleCreateNewProject(cat.id)}
                           >
-                              <Plus size={14} color={Colors.textSecondary} />
+                              <Plus size={16} color={Colors.textSecondary} />
                               <Text style={styles.noteItemText}>{isLibrary ? 'New Page' : 'New Project'}</Text>
                           </TouchableOpacity>
                       </View>
@@ -242,7 +252,7 @@ const styles = StyleSheet.create({
   appName: { color: Colors.text, fontWeight: "bold", fontSize: 16 },
   sectionTitle: {
     color: Colors.textMuted,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "bold",
     paddingHorizontal: 15,
     marginBottom: 5,
@@ -256,8 +266,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sidebarItemActive: { backgroundColor: "#1E293B" },
-  sidebarItemText: { color: Colors.textSecondary, fontSize: 13 },
-  sidebarItemTextActive: { color: Colors.text, fontWeight: "600" },
+  sidebarItemText: { color: Colors.textSecondary, fontSize: 15 },
+  sidebarItemTextActive: { color: Colors.text, fontWeight: "600", fontSize: 15 },
   noteItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -266,7 +276,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   noteItemActive: { backgroundColor: "rgba(99, 102, 241, 0.1)" },
-  noteItemText: { color: Colors.textSecondary, fontSize: 13 },
-  noteItemTextActive: { color: Colors.primary, fontWeight: "500" },
-  emptyText: { color: Colors.textMuted, fontSize: 12, paddingHorizontal: 15, fontStyle: 'italic' },
+  noteItemText: { color: Colors.textSecondary, fontSize: 15 },
+  noteItemTextActive: { color: Colors.primary, fontWeight: "500", fontSize: 15 },
+  emptyText: { color: Colors.textMuted, fontSize: 14, paddingHorizontal: 15, fontStyle: 'italic' },
 });

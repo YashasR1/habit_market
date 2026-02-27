@@ -13,6 +13,7 @@ const DEFAULT_FOLDERS = [
 export const useHabitPersistence = () => {
   const [dailyHabits, setDailyHabits] = useState<any[]>([]);
   const [userName, setUserName] = useState('Trader');
+  const [isUsernameClaimed, setIsUsernameClaimed] = useState(false);
   const [userAvatar, setUserAvatar] = useState('TrendingUp');
 
   // Historical chart data
@@ -40,7 +41,8 @@ export const useHabitPersistence = () => {
     if (isLoaded) {
       saveDataToSQLite();
     }
-  }, [dailyHabits, chartData, lastUpdated, habitHistory, userName, userAvatar, notes, folders, soundEnabled, hapticsEnabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyHabits, chartData, lastUpdated, habitHistory, userName, isUsernameClaimed, userAvatar, notes, folders, soundEnabled, hapticsEnabled, isLoaded]);
 
   const loadDataFromSQLite = () => {
     try {
@@ -49,6 +51,7 @@ export const useHabitPersistence = () => {
       const settingsMap = settingsRows.reduce((acc, row) => ({ ...acc, [row.key]: row.value }), {} as any);
       
       setUserName(settingsMap['userName'] || 'Trader');
+      setIsUsernameClaimed(settingsMap['isUsernameClaimed'] === 'true');
       setUserAvatar(settingsMap['userAvatar'] || 'TrendingUp');
       setSoundEnabled(settingsMap['soundEnabled'] !== 'false');
       setHapticsEnabled(settingsMap['hapticsEnabled'] !== 'false');
@@ -129,6 +132,7 @@ export const useHabitPersistence = () => {
         // 1. Settings Upsert
         const settingsToSave = [
             { key: 'userName', val: userName },
+            { key: 'isUsernameClaimed', val: isUsernameClaimed ? 'true' : 'false' },
             { key: 'userAvatar', val: userAvatar },
             { key: 'soundEnabled', val: soundEnabled ? 'true' : 'false' },
             { key: 'hapticsEnabled', val: hapticsEnabled ? 'true' : 'false' },
@@ -198,6 +202,7 @@ export const useHabitPersistence = () => {
           setNotes([]);
           setFolders(DEFAULT_FOLDERS);
           setUserName('Trader');
+          setIsUsernameClaimed(false);
           setUserAvatar('TrendingUp');
           setSoundEnabled(true);
           setHapticsEnabled(true);
@@ -215,6 +220,7 @@ export const useHabitPersistence = () => {
     chartData, setChartData,
     habitHistory, setHabitHistory,
     userName, setUserName,
+    isUsernameClaimed, setIsUsernameClaimed,
     userAvatar, setUserAvatar,
     notes, setNotes,
     folders, setFolders,

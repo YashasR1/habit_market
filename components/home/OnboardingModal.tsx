@@ -14,7 +14,7 @@ import { Colors } from "../../constants/Colors";
 interface OnboardingModalProps {
   visible: boolean;
   userName: string;
-  updateUserName: (name: string) => void;
+  updateUserName: (name: string) => Promise<{ success: boolean; error?: string } | void>;
   onClose: () => void;
 }
 
@@ -24,6 +24,30 @@ export const OnboardingModal = ({
   updateUserName,
   onClose,
 }: OnboardingModalProps) => {
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const handleTradePress = async () => {
+    if (!userName.trim()) {
+      setErrorMsg("Please enter a username.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    
+    // updateUserName handles both local save and Firebase validation
+    const result = await updateUserName(userName);
+    
+    setIsSubmitting(false);
+
+    if (result && !result.success) {
+      setErrorMsg(result.error || "Failed to claim username.");
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade">
       <KeyboardAvoidingView
@@ -42,19 +66,36 @@ export const OnboardingModal = ({
             Treat your life like a stock chart. Keep the trend bullish!
           </Text>
 
-          <View style={{ width: "100%", marginBottom: 20 }}>
+          <View style={{ width: "100%", marginBottom: 10 }}>
             <Text style={styles.label}>What should we call you?</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errorMsg ? { borderColor: Colors.error, borderWidth: 1 } : {}]}
               placeholder="e.g. Trader, Builder, Yash..."
               placeholderTextColor={Colors.textMuted}
               value={userName} // Bind to context variable
-              onChangeText={updateUserName}
+              onChangeText={(text) => {
+                setErrorMsg(null);
+                updateUserName(text); // Still update state as they type
+              }}
+              autoCapitalize="none"
+              editable={!isSubmitting}
             />
           </View>
 
-          <Pressable style={styles.onboardingBtn} onPress={onClose}>
-            <Text style={styles.onboardingBtnText}>Let&apos;s Trade</Text>
+          {errorMsg && (
+            <Text style={{ color: Colors.error, fontSize: 13, alignSelf: 'flex-start', marginBottom: 15, paddingHorizontal: 5 }}>
+              {errorMsg}
+            </Text>
+          )}
+
+          <Pressable 
+            style={[styles.onboardingBtn, isSubmitting && { opacity: 0.7 }]} 
+            onPress={handleTradePress}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.onboardingBtnText}>
+              {isSubmitting ? "Checking..." : "Let's Trade"}
+            </Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

@@ -40,6 +40,6 @@ yarn-error.*
 /ios
 /android
 
-# firebase config with secret API keys
-firebaseConfig.ts
+# firebase config with secret API keys (now using .env, so the config file itself is safe)
 google-services.json
+.env
