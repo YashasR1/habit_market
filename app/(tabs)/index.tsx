@@ -5,7 +5,6 @@ import {
   Text,
   Pressable, 
   Platform,
-  Dimensions,
   LayoutAnimation,
   UIManager,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { CircleUser, Plus, TrendingUp, Shield, Rocket, Diamond, Crown, Bot, Zap 
 import * as Haptics from 'expo-haptics';
 
 import { useHabits } from '../../context/HabitContext';
+import { usePod } from '../../context/PodContext';
 import { Colors } from '../../constants/Colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -25,8 +25,6 @@ import { HabitList } from '../../components/home/HabitList';
 import { AddHabitModal } from '../../components/home/AddHabitModal';
 import { ManageHabitModal } from '../../components/home/ManageHabitModal';
 import { SkeletonLoader } from '../../components/common/SkeletonLoader';
-
-const { width } = Dimensions.get('window');
 
 // Avatar config — mirrors profile.tsx AVATARS
 const AVATAR_MAP: Record<string, { icon: any; color: string }> = {
@@ -51,7 +49,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function DailyFocusScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { dailyHabits, updateMarket, addHabit, removeHabit, toggleHabit, pauseHabit, archiveHabit, userName, updateUserName, userAvatar, notes, clientProjects, isLoaded } = useHabits();
+  const { dailyHabits, updateMarket, addHabit, removeHabit, toggleHabit, pauseHabit, archiveHabit, userName, updateUserName, userAvatar } = useHabits();
+  const { clientProjects, isLoaded } = usePod();
   
   // Resolve avatar icon — falls back to CircleUser if default (TrendingUp is profile default, not home default)
   const avatarEntry = userAvatar ? AVATAR_MAP[userAvatar] : null;

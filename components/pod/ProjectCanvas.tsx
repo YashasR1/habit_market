@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import {
   Image as ImageIcon,
@@ -15,7 +17,9 @@ import {
   Check,
   CheckSquare,
 } from "lucide-react-native";
+import { actions, RichEditor, RichToolbar } from 'react-native-pell-rich-editor';
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { Colors } from "../../constants/Colors";
 import { useMediaUpload } from "../../context/hooks/useMediaUpload";
 import { ProjectChecklist } from "./ProjectChecklist";
@@ -49,6 +53,9 @@ export const ProjectCanvas = ({
   const [tempChecklist, setTempChecklist] = useState<any[]>(activeProject.checklist || []);
   const [isSaving, setIsSaving] = useState(false);
   const media: any[] = activeProject.media || [];
+  
+  // Rich Text Editor Ref
+  const richText = useRef<RichEditor>(null);
 
   // Sync tempContent when activeProject changes (e.g. switching projects)
   useEffect(() => {
@@ -105,26 +112,42 @@ export const ProjectCanvas = ({
 
   const handlePickImage = async () => {
     if (!(await requestPermission())) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      allowsEditing: false,
-    });
-    if (!result.canceled && result.assets[0]) {
-      await handleUpload(result.assets[0].uri, "image");
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: false,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Compress image before uploading
+        const manipResult = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 1080 } }], // Resize to max 1080p width
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compress to 70% quality JPEG
+        );
+        await handleUpload(manipResult.uri, "image");
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert('Error', 'Something went wrong while selecting the image.');
     }
   };
 
   const handlePickVideo = async () => {
     if (!(await requestPermission())) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["videos"],
-      quality: 0.8,
-      allowsEditing: false,
-      videoMaxDuration: 120,
-    });
-    if (!result.canceled && result.assets[0]) {
-      await handleUpload(result.assets[0].uri, "video");
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        quality: 0.8,
+        allowsEditing: false,
+        videoMaxDuration: 120,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await handleUpload(result.assets[0].uri, "video");
+      }
+    } catch (error) {
+       console.error("Error picking video:", error);
+       Alert.alert('Error', 'Something went wrong while selecting the video.');
     }
   };
 
@@ -169,6 +192,7 @@ export const ProjectCanvas = ({
   };
 
   return (
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex: 1}}>
     <View style={{ flex: 1 }}>
       {/* STICKY HEADER ACTIONS */}
       <View style={[styles.stickyHeader, { top: 0 }]}>
@@ -264,21 +288,51 @@ export const ProjectCanvas = ({
             setTempChecklist={setTempChecklist}
         />
 
-        {/* TEXT CONTENT */}
-        <TextInput
-          style={styles.canvasContent}
-          placeholder="Write project specs, notes, or ideas here..."
-          placeholderTextColor={Colors.textMuted}
-          value={tempContent}
-          onChangeText={setTempContent}
-          multiline
-          textAlignVertical="top"
+        {/* RICH TEXT TOOLBAR */}
+        <RichToolbar
+            editor={richText}
+            actions={[
+                actions.setBold,
+                actions.setItalic,
+                actions.setUnderline,
+                actions.insertBulletsList,
+                actions.insertOrderedList,
+                actions.heading1,
+                actions.heading2,
+            ]}
+            iconTint={Colors.textSecondary}
+            selectedIconTint={Colors.primary}
+            style={styles.richToolbar}
         />
+
+        {/* TEXT CONTENT */}
+        <View style={styles.editorContainer}>
+            <RichEditor
+                ref={richText}
+                initialContentHTML={tempContent}
+                onChange={(descriptionText) => {
+                    setTempContent(descriptionText);
+                }}
+                placeholder="Write project specs, notes, or ideas here..."
+                editorStyle={{
+                    backgroundColor: Colors.background,
+                    color: Colors.text,
+                    placeholderColor: Colors.textMuted,
+                    cssText: `
+                        body { font-family: sans-serif; font-size: 16px; margin: 0; padding: 10px 0; }
+                        h1 { font-size: 24px; color: ${Colors.primary}; }
+                        h2 { font-size: 20px; }
+                    `
+                }}
+                useContainer={false}
+            />
+        </View>
 
         {/* MEDIA SECTION */}
         <ProjectMediaGallery media={media} />
       </ScrollView>
     </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -316,6 +370,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#1E293B",
     marginVertical: 20,
   },
+  richToolbar: { backgroundColor: 'transparent', height: 44, marginBottom: 10 },
+  editorContainer: { minHeight: 300, flex: 1 },
   canvasContent: {
     fontSize: 16,
     color: Colors.text,

@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator } from 'react-native';
-import { Image as ImageIcon, Video as VideoIcon } from 'lucide-react-native';
+import React, { useRef } from 'react';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { Image as ImageIcon, Video as VideoIcon, Trash2 } from 'lucide-react-native';
+import { actions, RichEditor, RichToolbar } from 'react-native-pell-rich-editor';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
@@ -16,6 +17,7 @@ interface NoteEditorProps {
     typeLabel?: string;
     activeNote: any;
     addNoteMedia: (noteId: string, mediaItem: { url: string; type: 'image' | 'video'; uploadedBy: string; uploadedAt: string }) => void;
+    deleteNoteMedia?: (noteId: string, mediaUrl: string) => void;
     userName: string;
 }
 
@@ -28,12 +30,16 @@ export const NoteEditor = ({
     typeLabel,
     activeNote,
     addNoteMedia,
+    deleteNoteMedia,
     userName
 }: NoteEditorProps) => {
     const media = activeNote?.media || [];
 
     // Local loading state just to prevent double taps
     const [isProcessing, setIsProcessing] = React.useState(false);
+    
+    // Rich Text Editor Ref
+    const richText = useRef<RichEditor>(null);
 
     const requestPermission = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -49,13 +55,16 @@ export const NoteEditor = ({
         setIsProcessing(true);
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 quality: 0.8,
                 allowsEditing: false,
             });
-            if (!result.canceled && result.assets[0]) {
+            if (!result.canceled && result.assets && result.assets.length > 0) {
                 await handleUpload(result.assets[0].uri, 'image');
             }
+        } catch (error) {
+            console.error("Error picking image:", error);
+            Alert.alert('Error', 'Something went wrong while selecting the image.');
         } finally {
             setIsProcessing(false);
         }
@@ -66,20 +75,28 @@ export const NoteEditor = ({
         setIsProcessing(true);
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['videos'],
+                mediaTypes: ImagePicker.MediaTypeOptions.Videos,
                 quality: 0.8,
                 allowsEditing: false,
                 videoMaxDuration: 120,
             });
-            if (!result.canceled && result.assets[0]) {
+            if (!result.canceled && result.assets && result.assets.length > 0) {
                 await handleUpload(result.assets[0].uri, 'video');
             }
+        } catch (error) {
+            console.error("Error picking video:", error);
+            Alert.alert('Error', 'Something went wrong while selecting the video.');
         } finally {
             setIsProcessing(false);
         }
     };
 
     const handleUpload = async (uri: string, type: 'image' | 'video') => {
+        if (!activeNote?.id) {
+            Alert.alert('Hold on!', 'Please save or initialize the note before attaching media.');
+            return;
+        }
+
         // Since Library notes are private, we DO NOT upload to Firebase.
         // We just save the local file URI directly to the local SQLite database.
         addNoteMedia(activeNote.id, {
@@ -91,6 +108,7 @@ export const NoteEditor = ({
     };
 
     return (
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex: 1}}>
         <ScrollView
             style={styles.canvas}
             contentContainerStyle={{ paddingBottom: 100 }}
@@ -121,15 +139,43 @@ export const NoteEditor = ({
 
             <View style={styles.canvasSeparator} />
 
-            <TextInput
-            style={styles.canvasContent}
-            placeholder="Type something..."
-            placeholderTextColor={Colors.textMuted}
-            value={editorContent}
-            onChangeText={setEditorContent}
-            multiline
-            textAlignVertical="top"
+            <RichToolbar
+              editor={richText}
+              actions={[
+                  actions.setBold,
+                  actions.setItalic,
+                  actions.setUnderline,
+                  actions.insertBulletsList,
+                  actions.insertOrderedList,
+                  actions.heading1,
+                  actions.heading2,
+              ]}
+              iconTint={Colors.textSecondary}
+              selectedIconTint={Colors.primary}
+              style={styles.richToolbar}
             />
+
+            <View style={styles.editorContainer}>
+                <RichEditor
+                  ref={richText}
+                  initialContentHTML={editorContent}
+                  onChange={(descriptionText) => {
+                      setEditorContent(descriptionText);
+                  }}
+                  placeholder="Start typing your note here..."
+                  editorStyle={{
+                      backgroundColor: Colors.background,
+                      color: Colors.text,
+                      placeholderColor: Colors.textMuted,
+                      cssText: `
+                          body { font-family: sans-serif; font-size: 16px; margin: 0; padding: 10px 0; }
+                          h1 { font-size: 24px; color: ${Colors.primary}; }
+                          h2 { font-size: 20px; }
+                      `
+                  }}
+                  useContainer={false} // Lets it grow within ScrollView
+                />
+            </View>
 
             {/* Media Block */}
             <View style={styles.mediaBlock}>
@@ -162,7 +208,7 @@ export const NoteEditor = ({
                     <View style={styles.mediaGrid}>
                         {media.map((item: any, idx: number) => (
                             <Animated.View 
-                                key={idx} 
+                                key={`${item.url}-${idx}`} 
                                 style={styles.mediaWrapper}
                                 entering={FadeIn.delay(idx * 100).duration(400).springify()}
                             >
@@ -177,6 +223,29 @@ export const NoteEditor = ({
                                         <VideoItem url={item.url} />
                                     )}
                                 </TouchableOpacity>
+                                
+                                {deleteNoteMedia && (
+                                    <TouchableOpacity 
+                                        style={styles.deleteMediaBtn}
+                                        onPress={() => {
+                                            Alert.alert(
+                                                "Delete Media",
+                                                "Are you sure you want to remove this?",
+                                                [
+                                                    { text: "Cancel", style: "cancel" },
+                                                    { 
+                                                        text: "Delete", 
+                                                        style: "destructive",
+                                                        onPress: () => deleteNoteMedia(activeNote.id, item.url)
+                                                    }
+                                                ]
+                                            );
+                                        }}
+                                    >
+                                        <Trash2 size={16} color={Colors.error} />
+                                    </TouchableOpacity>
+                                )}
+
                                 <View style={styles.mediaFooter}>
                                     <Text style={styles.mediaUploadedBy} numberOfLines={1}>
                                          {item.uploadedBy}
@@ -191,6 +260,7 @@ export const NoteEditor = ({
                 )}
             </View>
         </ScrollView>
+        </KeyboardAvoidingView>
     );
 };
 
@@ -201,7 +271,9 @@ const styles = StyleSheet.create({
   tagsContainer: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   tag: { backgroundColor: '#1E293B', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   tagText: { color: Colors.textSecondary, fontSize: 12 },
-  canvasSeparator: { height: 1, backgroundColor: '#1E293B', marginBottom: 20 },
+  canvasSeparator: { height: 1, backgroundColor: '#1E293B', marginBottom: 10 },
+  richToolbar: { backgroundColor: 'transparent', height: 44, marginBottom: 10 },
+  editorContainer: { minHeight: 200, flex: 1 },
   canvasContent: { fontSize: 16, color: Colors.text, lineHeight: 24, minHeight: 200 },
   
   // Media Block
@@ -214,9 +286,18 @@ const styles = StyleSheet.create({
   
   // Media Grid
   mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 10 },
-  mediaWrapper: { width: MEDIA_ITEM_SIZE },
+  mediaWrapper: { width: MEDIA_ITEM_SIZE, position: 'relative' },
   mediaItem: { width: MEDIA_ITEM_SIZE, height: MEDIA_ITEM_SIZE, borderRadius: 10, backgroundColor: '#0F172A' },
   mediaFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingHorizontal: 2 },
   mediaUploadedBy: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600', flex: 1 },
   mediaTime: { color: Colors.textMuted, fontSize: 10 },
+  deleteMediaBtn: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      padding: 6,
+      borderRadius: 15,
+      zIndex: 10,
+  }
 });

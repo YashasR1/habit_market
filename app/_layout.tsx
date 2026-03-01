@@ -8,9 +8,12 @@ import "react-native-reanimated";
 import { View, Animated, StyleSheet, Text } from "react-native"; // Added imports
 import { Colors } from "../constants/Colors";
 import { Zap } from "lucide-react-native";
+import { initDB } from "../context/db";
 
 // Import your custom context
 import { HabitProvider, useHabits } from "../context/HabitContext";
+import { SyncProvider } from "../context/SyncContext";
+import { PodProvider, usePod } from "../context/PodContext";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -23,7 +26,6 @@ export {
 } from "expo-router";
 
 // Initialize SQLite Schema
-import { initDB } from "../context/db";
 initDB();
 
 export const unstable_settings = {
@@ -111,9 +113,10 @@ function RootLayoutNav() {
 }
 
 function AppContent() {
-  const { isLoaded } = useHabits();
+  const { isLoaded: isHabitsLoaded } = useHabits();
+  const { isLoaded: isPodLoaded } = usePod();
 
-  if (!isLoaded) {
+  if (!isHabitsLoaded || !isPodLoaded) {
     return <LoadingScreen />;
   }
 
@@ -142,9 +145,13 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <HabitProvider>
-        <AppContent />
-      </HabitProvider>
+      <SyncProvider>
+        <PodProvider>
+          <HabitProvider>
+            <AppContent />
+          </HabitProvider>
+        </PodProvider>
+      </SyncProvider>
     </GestureHandlerRootView>
   );
 }

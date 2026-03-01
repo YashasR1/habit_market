@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { db as firebaseDb } from '../firebaseConfig';
 import { db as sqliteDb } from './db';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 
 export const useSyncEngine = () => {
     const [isOnline, setIsOnline] = useState(true);
@@ -22,6 +22,7 @@ export const useSyncEngine = () => {
         processSyncQueue();
 
         return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const processSyncQueue = async () => {
@@ -45,8 +46,22 @@ export const useSyncEngine = () => {
                     const docRef = doc(firebaseDb, item.tableName, item.recordId);
 
                     if (item.operation === 'INSERT' || item.operation === 'UPDATE') {
-                        // Merge payload with existing FireStore data to achieve an upsert (Last-Write-Wins)
-                        await setDoc(docRef, payload, { merge: true });
+                        // Conflict Resolution: Last-Writer-Wins
+                        const currentDoc = await getDoc(docRef);
+                        let shouldSync = true;
+                        
+                        if (currentDoc.exists() && payload.lastEditedAt) {
+                            const cloudData = currentDoc.data();
+                            if (cloudData.lastEditedAt && new Date(cloudData.lastEditedAt) > new Date(payload.lastEditedAt)) {
+                                console.log(`[SYNC] Conflict detected for ${item.recordId}. Cloud version is newer. Skipping local update.`);
+                                shouldSync = false;
+                            }
+                        }
+
+                        if (shouldSync) {
+                            // Merge payload with existing FireStore data to achieve an upsert
+                            await setDoc(docRef, payload, { merge: true });
+                        }
                     } else if (item.operation === 'DELETE') {
                         await deleteDoc(docRef);
                     }

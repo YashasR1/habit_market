@@ -5,16 +5,12 @@ import * as Haptics from 'expo-haptics';
 import { Sounds } from '../utils/sounds';
 import { db, auth } from '../firebaseConfig';
 import { signInAnonymously } from 'firebase/auth';
-
-import { collection, onSnapshot, query, orderBy, limit, setDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { setDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 // Hooks
 import { useHabitPersistence } from './hooks/useHabitPersistence';
-import { useClientProjects } from './hooks/useClientProjects';
 import { useWeeklyStats } from './hooks/useWeeklyStats';
-import { NotificationService } from '../utils/NotificationService';
 import { defaultHabitContext } from './HabitContextDefault';
-import { useSyncEngine } from './syncEngine';
 
 const HabitContext = createContext<any>(defaultHabitContext);
 
@@ -27,109 +23,13 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
       userName, setUserName,
       isUsernameClaimed, setIsUsernameClaimed,
       userAvatar, setUserAvatar,
-      notes, setNotes,
-      folders, setFolders,
-      isLoaded,
       // #2: Settings from persistence
       soundEnabled, setSoundEnabled,
       hapticsEnabled, setHapticsEnabled,
       resetAppData: resetPersistence
   } = useHabitPersistence();
 
-  // 4. Background Sync Engine
-  const { isOnline, isSyncing, triggerSync } = useSyncEngine();
-
-  // 2. Client Projects Hook
-  const {
-      clientProjects,
-      sharedFolders,
-      isLoaded: isProjectsLoaded,
-      addClientProject,
-      deleteClientProject,
-      updateClientProject,
-      addProjectMedia,
-      addSharedFolder,
-      migrateSharedFolder,
-      deleteSharedFolder
-  } = useClientProjects(triggerSync);
-
-  // 3. Weekly Stats Hook
-  const { calculateStreak, getWeeklyComparisonData, getWeeklyStats } = useWeeklyStats(dailyHabits, habitHistory);
-
-  // --- AUTHENTICATION ---
-  React.useEffect(() => {
-     signInAnonymously(auth).catch(err => console.error("Anonymous auth failed:", err));
-  }, []);
-
-  // --- MIGRATION: Local Assign folders -> Firestore ---
-  React.useEffect(() => {
-    if (isLoaded && folders.length > 0) {
-        const localAssignFolders = folders.filter(f => f.section === 'assign');
-        if (localAssignFolders.length > 0) {
-            console.log("Migrating local ASSIGN folders to cloud...");
-            localAssignFolders.forEach(async (folder) => {
-                await migrateSharedFolder(folder);
-            });
-            // Clear them from local state so we don't migrate again
-            setFolders(prev => prev.filter(f => f.section !== 'assign'));
-        }
-    }
-  }, [isLoaded, folders, migrateSharedFolder, setFolders]);
-
-  // --- NOTIFICATIONS: Listen for peer activity ---
-  React.useEffect(() => {
-    if (!isLoaded) return;
-
-    // 1. Initialise Notification Permissions and get token
-    NotificationService.registerForPushNotificationsAsync().then(async (token) => {
-      if (token && userName) {
-        // Save the token to Firestore to enable background push notifications
-        try {
-          await setDoc(doc(db, "user_tokens", userName), { 
-            token, 
-            updatedAt: serverTimestamp() 
-          });
-          console.log(`Token saved to cloud for ${userName}`);
-        } catch (e) {
-          console.error("Failed to save push token:", e);
-        }
-      }
-    });
-
-    // 2. Listen for NEW activity only (from now onwards)
-    const startTime = new Date().toISOString();
-    
-    const activityQuery = query(
-        collection(db, "collaborative_notifications"),
-        orderBy("timestamp", "desc"),
-        limit(1)
-    );
-
-    const unsubscribe = onSnapshot(activityQuery, (snapshot: any) => {
-        snapshot.docChanges().forEach((change: any) => {
-            if (change.type === "added") {
-                const data = change.doc.data();
-                
-                // Only notify if:
-                // - It's from another user
-                // - It's AFTER we started listening
-                if (data.source !== userName && data.timestamp >= startTime) {
-                    const icon = data.action.includes('folder') ? '📁' : 
-                                data.action.includes('project') ? '📝' : 
-                                data.action.includes('image') ? '🖼️' :
-                                data.action.includes('video') ? '🎥' : '🔔';
-                                
-                    NotificationService.sendLocalNotification(
-                        "MARHABS",
-                        `${icon} ${data.source} ${data.action}: ${data.label}`
-                    );
-                }
-            }
-        });
-    });
-
-    return () => unsubscribe();
-  }, [isLoaded, userName]);
+    const { calculateStreak, getWeeklyComparisonData, getWeeklyStats } = useWeeklyStats(dailyHabits, habitHistory);
 
 
   const resetAppData = async () => {
@@ -143,12 +43,7 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
   const updateUserName = async (name: string) => {
     const formattedName = name.trim().toLowerCase();
     
-    if (!isOnline) {
-       setUserName(formattedName);
-       setIsUsernameClaimed(false);
-       return { success: true }; 
-    }
-    
+    // Fallback if not specifically online
     try {
         if (!auth.currentUser) await signInAnonymously(auth);
         
@@ -325,66 +220,6 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-
-  const addNote = (title: string, content: string, type: string = 'note') => {
-      const newNote = {
-          id: Math.random().toString(36).substring(7),
-          title: title || 'Untitled',
-          content: content || '',
-          type,
-          date: new Date().toISOString(),
-          media: []
-      };
-      setNotes(prev => [newNote, ...prev]);
-  };
-
-  const updateNote = (id: string, updates: any) => {
-      setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates, date: new Date().toISOString() } : n));
-  };
-
-  const addNoteMedia = (noteId: string, mediaItem: { url: string; type: 'image' | 'video'; uploadedBy: string; uploadedAt: string }) => {
-      setNotes(prev => prev.map(n => n.id === noteId ? { ...n, media: [...(n.media || []), mediaItem], date: new Date().toISOString() } : n));
-  };
-
-  const deleteNote = (id: string) => {
-      setNotes(prev => prev.filter(n => n.id !== id));
-  };
-
-
-  const addFolder = (name: string, section: string = 'library', assignedTo?: string) => {
-      if (section === 'assign') {
-          addSharedFolder(name, userName, assignedTo);
-      } else {
-          const newFolder = {
-              id: Math.random().toString(36).substring(7),
-              label: name,
-              icon: 'Folder', // Default icon
-              type: 'user',
-              section // 'library' or 'assign'
-          };
-          setFolders(prev => [...prev, newFolder]);
-      }
-  };
-
-  const deleteFolder = (id: string, name: string) => {
-      // 1. Check if it's a shared folder or local one
-      const isShared = sharedFolders.some(f => f.id === id);
-
-      if (isShared) {
-          deleteSharedFolder(id, name, userName);
-      } else {
-          setFolders(prev => prev.filter(f => f.id !== id));
-      }
-
-      // 2. Delete all notes/projects in that folder
-      setNotes(prev => prev.filter(n => n.type !== id));
-      
-      const projectsToDelete = clientProjects.filter(p => p.folderId === id);
-      projectsToDelete.forEach(p => {
-          deleteClientProject(p.id, p.name, userName);
-      });
-  };
-
   return (
     <HabitContext.Provider value={{ 
       dailyHabits, 
@@ -398,9 +233,6 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
       addHabit,
       removeHabit,
       resetAppData,
-      isLoaded: isLoaded && isProjectsLoaded,
-      isOnline,
-      isSyncing,
       userName,
       isUsernameClaimed,
       updateUserName,
@@ -409,31 +241,8 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
       pauseHabit,
       resumeHabit,
       archiveHabit,
-      notes,
-      addNote,
-      updateNote,
-      deleteNote,
       getWeeklyComparisonData,
       getWeeklyStats,
-      folders: [
-          ...folders.filter((f: any) => f.section !== 'assign'), 
-          ...sharedFolders.filter((f: any) => !f.createdBy || f.createdBy.toLowerCase() === userName.toLowerCase() || (f.assignedTo && f.assignedTo.toLowerCase() === userName.toLowerCase()))
-      ],
-      addFolder,
-      deleteFolder,
-      clientProjects: clientProjects.filter((p: any) => !p.createdBy || p.createdBy.toLowerCase() === userName.toLowerCase() || (p.assignedTo && p.assignedTo.toLowerCase() === userName.toLowerCase())),
-      sharedFolders: sharedFolders.filter((f: any) => !f.createdBy || f.createdBy.toLowerCase() === userName.toLowerCase() || (f.assignedTo && f.assignedTo.toLowerCase() === userName.toLowerCase())),
-      addClientProject: (name: string, folderId: string) => {
-          const folder = sharedFolders.find(f => f.id === folderId) || folders.find(f => f.id === folderId);
-          const assignedTo = folder?.assignedTo;
-          addClientProject(name, folderId, userName, assignedTo);
-      },
-      deleteClientProject: (id: string, name: string) => deleteClientProject(id, name, userName),
-      updateClientProject: (id: string, name: string, updates: any) => updateClientProject(id, name, updates, userName),
-      addProjectMedia: (projectId: string, projectName: string, mediaItem: any) => addProjectMedia(projectId, projectName, mediaItem, userName),
-      addSharedFolder,
-      migrateSharedFolder,
-      addNoteMedia,
       // #2: Expose settings for profile screen
       soundEnabled, setSoundEnabled,
       hapticsEnabled, setHapticsEnabled,

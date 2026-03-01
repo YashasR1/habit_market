@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,15 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   LayoutAnimation,
-  UIManager,
-  Modal,
-  FlatList
+  Modal
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/Colors";
+import { usePod } from "../../context/PodContext";
 import { useHabits } from "../../context/HabitContext";
 import {
-  MoreHorizontal,
   Save,
   Trash2,
   ChevronRight,
@@ -35,14 +33,14 @@ const { width } = Dimensions.get("window");
 
 export default function PodScreen() {
   const insets = useSafeAreaInsets();
-  const { notes, addNote, updateNote, deleteNote, folders, addFolder, deleteFolder, clientProjects, addClientProject, deleteClientProject, updateClientProject, addProjectMedia, addNoteMedia, userName } = useHabits();
+  const { notes, addNote, updateNote, deleteNote, folders, addFolder, deleteFolder, clientProjects, addClientProject, deleteClientProject, updateClientProject, addProjectMedia, addNoteMedia, deleteNoteMedia } = usePod();
+  const { userName } = useHabits();
   const params = useLocalSearchParams();
 
   // Layout State
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all"); // 'all', folderId, or 'project_ID'
   const [activeProject, setActiveProject] = useState<any>(null); // For Client Projects
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Handle Deep Linking / Widget Navigation
   useEffect(() => {
@@ -68,8 +66,6 @@ export default function PodScreen() {
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [projectToDelete, setProjectToDelete] = useState<any>(null);
-  const [logInput, setLogInput] = useState(""); // kept for handleSelectProject clear
-  const [activeTab] = useState<'canvas'>('canvas'); // Live Log removed — always canvas
   
   const confirmDeleteFolder = (id: string) => {
       const folder = folders.find((f: any) => f.id === id);
@@ -109,8 +105,6 @@ export default function PodScreen() {
       setActiveCategory(`project_${project.id}`);
       setSelectedNote(null);
       setIsCreating(false);
-      // HIGH #5: Clear log input so drafts don't bleed across projects
-      setLogInput('');
        if (width < 768) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setIsSidebarOpen(false);
@@ -432,6 +426,7 @@ export default function PodScreen() {
                         typeLabel={folders.find((f: any) => f.id === editorType)?.label || editorType}
                         activeNote={selectedNote}
                         addNoteMedia={addNoteMedia}
+                        deleteNoteMedia={deleteNoteMedia}
                         userName={userName}
                     />
                 )
