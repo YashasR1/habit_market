@@ -1,73 +1,87 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext } from "react";
 
-import { calculateCandle } from '../utils/habitMarketEngine';
-import * as Haptics from 'expo-haptics';
-import { Sounds } from '../utils/sounds';
-import { db, auth } from '../firebaseConfig';
-import { signInAnonymously } from 'firebase/auth';
-import { setDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { calculateCandle } from "../utils/habitMarketEngine";
+import * as Haptics from "expo-haptics";
+import { Sounds } from "../utils/sounds";
+import { db, auth } from "../firebaseConfig";
+import { signInAnonymously } from "firebase/auth";
+import { setDoc, doc, serverTimestamp, getDoc } from "firebase/firestore";
 
 // Hooks
-import { useHabitPersistence } from './hooks/useHabitPersistence';
-import { useWeeklyStats } from './hooks/useWeeklyStats';
-import { defaultHabitContext } from './HabitContextDefault';
+import { useHabitPersistence } from "./hooks/useHabitPersistence";
+import { useWeeklyStats } from "./hooks/useWeeklyStats";
+import { defaultHabitContext } from "./HabitContextDefault";
 
 const HabitContext = createContext<any>(defaultHabitContext);
 
 export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
   // 1. Persistence Hook
   const {
-      dailyHabits, setDailyHabits,
-      chartData, setChartData,
-      habitHistory, setHabitHistory,
-      userName, setUserName,
-      isUsernameClaimed, setIsUsernameClaimed,
-      userAvatar, setUserAvatar,
-      // #2: Settings from persistence
-      soundEnabled, setSoundEnabled,
-      hapticsEnabled, setHapticsEnabled,
-      resetAppData: resetPersistence
+    dailyHabits,
+    setDailyHabits,
+    chartData,
+    setChartData,
+    habitHistory,
+    setHabitHistory,
+    userName,
+    setUserName,
+    isUsernameClaimed,
+    setIsUsernameClaimed,
+    userAvatar,
+    setUserAvatar,
+    isLoaded,
+    // #2: Settings from persistence
+    soundEnabled,
+    setSoundEnabled,
+    hapticsEnabled,
+    setHapticsEnabled,
+    resetAppData: resetPersistence,
   } = useHabitPersistence();
 
-    const { calculateStreak, getWeeklyComparisonData, getWeeklyStats } = useWeeklyStats(dailyHabits, habitHistory);
-
+  const { calculateStreak, getWeeklyComparisonData, getWeeklyStats } =
+    useWeeklyStats(dailyHabits, habitHistory);
 
   const resetAppData = async () => {
     const success = await resetPersistence();
     if (success) {
       // #2: Guard with hapticsEnabled
-      if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (hapticsEnabled)
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
 
   const updateUserName = async (name: string) => {
     const formattedName = name.trim().toLowerCase();
-    
+
     // Fallback if not specifically online
     try {
-        if (!auth.currentUser) await signInAnonymously(auth);
-        
-        const userRef = doc(db, 'users', formattedName);
-        const docSnap = await getDoc(userRef);
-        
-        if (docSnap.exists() && docSnap.data().uid !== auth.currentUser?.uid) {
-            return { success: false, error: 'Username is already taken globally.' };
-        }
-        
-        await setDoc(userRef, { uid: auth.currentUser?.uid, claimedAt: serverTimestamp() }, { merge: true });
-        setUserName(formattedName);
-        setIsUsernameClaimed(true);
-        return { success: true };
+      if (!auth.currentUser) await signInAnonymously(auth);
+
+      const userRef = doc(db, "users", formattedName);
+      const docSnap = await getDoc(userRef);
+
+      if (docSnap.exists() && docSnap.data().uid !== auth.currentUser?.uid) {
+        return { success: false, error: "Username is already taken globally." };
+      }
+
+      await setDoc(
+        userRef,
+        { uid: auth.currentUser?.uid, claimedAt: serverTimestamp() },
+        { merge: true },
+      );
+      setUserName(formattedName);
+      setIsUsernameClaimed(true);
+      return { success: true };
     } catch (e) {
-        console.error('Failed to claim username:', e);
-        return { success: false, error: 'Network error. Try again later.' };
+      console.error("Failed to claim username:", e);
+      return { success: false, error: "Network error. Try again later." };
     }
   };
 
   const updateUserAvatar = (avatar: string) => {
     setUserAvatar(avatar);
   };
-  
+
   // Function to update the "Market" whenever a task is toggled
   const updateMarket = (currentHabits?: any[]) => {
     // #2: Guard haptics and sounds
@@ -75,35 +89,36 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     if (soundEnabled) Sounds.playPop();
 
     const habitsToUse = currentHabits || dailyHabits;
-    const completedCount = habitsToUse.filter((h: any) => h.completed).length; 
-    const completionRate = habitsToUse.length > 0 ? completedCount / habitsToUse.length : 0;
+    const completedCount = habitsToUse.filter((h: any) => h.completed).length;
+    const completionRate =
+      habitsToUse.length > 0 ? completedCount / habitsToUse.length : 0;
 
     // Get the current chart history up to today for accurate cumulative metrics
     const chartHistory = chartData;
-    
+
     // HIGH #1: Generate today's live candle (no hardcoded gap times, cumulative market rules)
     const todayCandle = calculateCandle(
       chartHistory,
       completionRate,
-      habitsToUse.length
+      habitsToUse.length,
     );
 
     // Update the last candle in the array with real-time data
-    setChartData(prev => {
-        const todayDate = new Date().toDateString();
-        // Determine if we have any data
-        if (!prev || prev.length === 0) return [todayCandle];
+    setChartData((prev) => {
+      const todayDate = new Date().toDateString();
+      // Determine if we have any data
+      if (!prev || prev.length === 0) return [todayCandle];
 
-        const lastCandle = prev[prev.length - 1];
-        const lastCandleDate = new Date(lastCandle.timestamp).toDateString();
-        
-        if (lastCandleDate === todayDate) {
-            // Update today's candle (replace last element)
-            return [...prev.slice(0, -1), todayCandle];
-        } else {
-            // It's a new day, push a new candle
-            return [...prev, todayCandle];
-        }
+      const lastCandle = prev[prev.length - 1];
+      const lastCandleDate = new Date(lastCandle.timestamp).toDateString();
+
+      if (lastCandleDate === todayDate) {
+        // Update today's candle (replace last element)
+        return [...prev.slice(0, -1), todayCandle];
+      } else {
+        // It's a new day, push a new candle
+        return [...prev, todayCandle];
+      }
     });
   };
 
@@ -116,9 +131,13 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     // 1. Update Daily Habits + #4: Compute streak
     const baseCompleted = !dailyHabits.find((h: any) => h.id === id)?.completed;
     const updated = dailyHabits.map((h: any) =>
-       h.id === id
-         ? { ...h, completed: baseCompleted, streak: calculateStreak(id, habitHistory, baseCompleted) }
-         : h
+      h.id === id
+        ? {
+            ...h,
+            completed: baseCompleted,
+            streak: calculateStreak(id, habitHistory, baseCompleted),
+          }
+        : h,
     );
     setDailyHabits(updated);
 
@@ -128,17 +147,19 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     // 3. Sync with History
     const todayKey = new Date().toDateString();
     setHabitHistory((prev) => {
-        const dayData = prev[todayKey] || {};
-        const newDayData: Record<string, any> = { ...dayData };
-        if (baseCompleted) {
-            newDayData[id] = true;
-        } else {
-            delete newDayData[id];
-        }
-        // Store total active habits so historical bars are accurate
-        const activeCount = updated.filter((h: any) => h.status === 'active' || !h.status).length;
-        newDayData.__total = activeCount;
-        return { ...prev, [todayKey]: newDayData };
+      const dayData = prev[todayKey] || {};
+      const newDayData: Record<string, any> = { ...dayData };
+      if (baseCompleted) {
+        newDayData[id] = true;
+      } else {
+        delete newDayData[id];
+      }
+      // Store total active habits so historical bars are accurate
+      const activeCount = updated.filter(
+        (h: any) => h.status === "active" || !h.status,
+      ).length;
+      newDayData.__total = activeCount;
+      return { ...prev, [todayKey]: newDayData };
     });
   };
 
@@ -148,60 +169,75 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     if (soundEnabled) Sounds.playPop();
 
     setHabitHistory((prev) => {
-        const dayData = prev[dateKey] || {};
-        const isCompleted = dayData[habitId];
-        
-        const newDayData = { ...dayData };
-        if (isCompleted) {
-            delete newDayData[habitId];
-        } else {
-            newDayData[habitId] = true;
-        }
-        
-        const newHistory = { ...prev, [dateKey]: newDayData };
+      const dayData = prev[dateKey] || {};
+      const isCompleted = dayData[habitId];
 
-        return newHistory;
+      const newDayData = { ...dayData };
+      if (isCompleted) {
+        delete newDayData[habitId];
+      } else {
+        newDayData[habitId] = true;
+      }
+
+      const newHistory = { ...prev, [dateKey]: newDayData };
+
+      return newHistory;
     });
-    
+
     // Perform Sync for Today *outside* the setter to be safe with side effects
     const todayKey = new Date().toDateString();
     if (dateKey === todayKey) {
-        // We act on the *current* known state of dailyHabits
-        // This assumes dailyHabits is up to date when this function is called.
-        const habitStr = dailyHabits.find((h:any) => h.id === habitId);
-        if (habitStr) {
-           const updated = dailyHabits.map((h: any) => 
-               h.id === habitId ? { ...h, completed: !h.completed } : h
-           );
-           setDailyHabits(updated);
-           updateMarket(updated);
-        }
+      // We act on the *current* known state of dailyHabits
+      // This assumes dailyHabits is up to date when this function is called.
+      const habitStr = dailyHabits.find((h: any) => h.id === habitId);
+      if (habitStr) {
+        const updated = dailyHabits.map((h: any) =>
+          h.id === habitId ? { ...h, completed: !h.completed } : h,
+        );
+        setDailyHabits(updated);
+        updateMarket(updated);
+      }
     }
   };
 
   const pauseHabit = (id: string) => {
-      setDailyHabits((prev: any) => prev.map((h: any) => h.id === id ? { ...h, status: 'paused', completed: false } : h));
-      if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setDailyHabits((prev: any) =>
+      prev.map((h: any) =>
+        h.id === id ? { ...h, status: "paused", completed: false } : h,
+      ),
+    );
+    if (hapticsEnabled)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const resumeHabit = (id: string) => {
-      setDailyHabits((prev: any) => prev.map((h: any) => h.id === id ? { ...h, status: 'active' } : h));
-      if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setDailyHabits((prev: any) =>
+      prev.map((h: any) => (h.id === id ? { ...h, status: "active" } : h)),
+    );
+    if (hapticsEnabled)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const archiveHabit = (id: string) => {
-      setDailyHabits((prev: any) => prev.map((h: any) => h.id === id ? { ...h, status: 'archived', completed: false } : h));
-      if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setDailyHabits((prev: any) =>
+      prev.map((h: any) =>
+        h.id === id ? { ...h, status: "archived", completed: false } : h,
+      ),
+    );
+    if (hapticsEnabled)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const addHabit = (title: string, icon: string) => {
     const newHabit = {
       // Bug fix: concat two random strings to guarantee a reliably long unique ID
-      id: Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2),
+      id:
+        Math.random().toString(36).substring(2) +
+        Math.random().toString(36).substring(2),
       title,
-      icon: icon || 'Dumbbell',
+      icon: icon || "Dumbbell",
       completed: false,
-      status: 'active'
+      status: "active",
     };
     setDailyHabits((prev: any) => [...prev, newHabit]);
   };
@@ -210,43 +246,48 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     setDailyHabits((prev: any) => prev.filter((h: any) => h.id !== id));
     // #10: Purge this habit's ID from all historical records so it doesn't ghost
     setHabitHistory((prev) => {
-        const cleaned: Record<string, Record<string, any>> = {};
-        Object.entries(prev).forEach(([day, dayData]) => {
-            const newDay = { ...dayData };
-            delete newDay[id];
-            cleaned[day] = newDay;
-        });
-        return cleaned;
+      const cleaned: Record<string, Record<string, any>> = {};
+      Object.entries(prev).forEach(([day, dayData]) => {
+        const newDay = { ...dayData };
+        delete newDay[id];
+        cleaned[day] = newDay;
+      });
+      return cleaned;
     });
   };
 
   return (
-    <HabitContext.Provider value={{ 
-      dailyHabits, 
-      setDailyHabits, 
-      chartData, 
-      setChartData, 
-      habitHistory,
-      updateMarket, 
-      toggleHabit,
-      toggleHistoryHabit,
-      addHabit,
-      removeHabit,
-      resetAppData,
-      userName,
-      isUsernameClaimed,
-      updateUserName,
-      userAvatar,
-      updateUserAvatar,
-      pauseHabit,
-      resumeHabit,
-      archiveHabit,
-      getWeeklyComparisonData,
-      getWeeklyStats,
-      // #2: Expose settings for profile screen
-      soundEnabled, setSoundEnabled,
-      hapticsEnabled, setHapticsEnabled,
-    }}>
+    <HabitContext.Provider
+      value={{
+        dailyHabits,
+        setDailyHabits,
+        chartData,
+        setChartData,
+        habitHistory,
+        updateMarket,
+        toggleHabit,
+        toggleHistoryHabit,
+        addHabit,
+        removeHabit,
+        resetAppData,
+        userName,
+        isUsernameClaimed,
+        updateUserName,
+        userAvatar,
+        updateUserAvatar,
+        pauseHabit,
+        resumeHabit,
+        archiveHabit,
+        getWeeklyComparisonData,
+        getWeeklyStats,
+        isLoaded,
+        // #2: Expose settings for profile screen
+        soundEnabled,
+        setSoundEnabled,
+        hapticsEnabled,
+        setHapticsEnabled,
+      }}
+    >
       {children}
     </HabitContext.Provider>
   );
