@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { storage } from "../../firebaseConfig";
+import { auth, storage } from "../../firebaseConfig";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { signInAnonymously } from "firebase/auth";
 
 export const useMediaUpload = () => {
   const [uploading, setUploading] = useState(false);
@@ -17,6 +18,15 @@ export const useMediaUpload = () => {
     projectId: string,
   ): Promise<string | null> => {
     setUploading(true);
+    try {
+      // Ensure Firebase Auth session exists so Storage rules (request.auth != null) pass.
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+    } catch (authError) {
+      console.warn("Anonymous sign-in failed:", authError);
+      // Continue anyway — upload will fail with a permission error if rules are strict.
+    }
     try {
       // Use XMLHttpRequest as fetch() for local file:// URIs is known to randomly fail in React Native release builds on Android
       const blob: Blob = await new Promise((resolve, reject) => {

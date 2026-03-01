@@ -54,6 +54,26 @@ export default function PodScreen() {
     }
   }, [params.projectId, clientProjects]);
 
+  // Re-sync activeProject whenever clientProjects updates (e.g. after addProjectMedia)
+  // Intentionally omits activeProject from deps to avoid infinite update loops.
+  useEffect(() => {
+    if (activeProject) {
+      const updated = clientProjects.find((p: any) => p.id === activeProject.id);
+      if (updated) setActiveProject(updated);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientProjects]);
+
+  // Re-sync selectedNote whenever notes updates (e.g. after addNoteMedia)
+  // Intentionally omits selectedNote from deps to avoid infinite update loops.
+  useEffect(() => {
+    if (selectedNote) {
+      const updated = notes.find((n: any) => n.id === selectedNote.id);
+      if (updated) setSelectedNote(updated);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
+
   // Folder Management State
   const [isFolderModalVisible, setIsFolderModalVisible] = useState(false);
   const [targetSection, setTargetSection] = useState<'library' | 'assign'>('library');
