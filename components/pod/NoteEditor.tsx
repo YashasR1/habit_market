@@ -55,7 +55,7 @@ export const NoteEditor = ({
         setIsProcessing(true);
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 quality: 0.8,
                 allowsEditing: false,
             });
@@ -75,7 +75,7 @@ export const NoteEditor = ({
         setIsProcessing(true);
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+                mediaTypes: ['videos'],
                 quality: 0.8,
                 allowsEditing: false,
                 videoMaxDuration: 120,
