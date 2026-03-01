@@ -2,8 +2,9 @@ import React, { createContext, useContext, useEffect } from 'react';
 import { useHabitPersistence } from './hooks/useHabitPersistence';
 import { useClientProjects } from './hooks/useClientProjects';
 import { useSync } from './SyncContext';
-import { db } from '../firebaseConfig';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
+import { collection, onSnapshot, query, orderBy, limit, doc, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { NotificationService } from '../utils/NotificationService';
 
 const PodContext = createContext<any>(null);
@@ -28,12 +29,27 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
         deleteClientProject,
         updateClientProject,
         addProjectMedia,
+        deleteProjectMedia,
         addSharedFolder,
         migrateSharedFolder,
         deleteSharedFolder
     } = useClientProjects(triggerSync);
 
     const isLoaded = isPersistenceLoaded && isProjectsLoaded;
+
+    // --- REGISTER UID → USERNAME MAPPING ---
+    // Firestore rules check: get(/users/{createdBy}).uid == request.auth.uid
+    // This effect writes that mapping so ownership checks pass for anonymous auth users.
+    useEffect(() => {
+        if (!isLoaded || !userName) return;
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setDoc(doc(db, 'users', userName), { uid: user.uid }, { merge: true })
+                    .catch(err => console.error('[AUTH] Failed to register user mapping:', err));
+            }
+        });
+        return () => unsubscribe();
+    }, [isLoaded, userName]);
 
     // --- MIGRATION: Local Assign folders -> Firestore ---
     useEffect(() => {
@@ -172,6 +188,7 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
             deleteClientProject: (id: string, name: string) => deleteClientProject(id, name, userName),
             updateClientProject: (id: string, name: string, updates: any) => updateClientProject(id, name, updates, userName),
             addProjectMedia: (projectId: string, projectName: string, mediaItem: any) => addProjectMedia(projectId, projectName, mediaItem, userName),
+            deleteProjectMedia: (projectId: string, projectName: string, mediaUrl: string) => deleteProjectMedia(projectId, projectName, mediaUrl, userName),
             isLoaded
         }}>
             {children}

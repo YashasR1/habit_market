@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, { 
     useSharedValue, 
     useAnimatedStyle, 
@@ -8,8 +8,6 @@ import Animated, {
     interpolate,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const { width } = Dimensions.get('window');
 
 interface SkeletonProps {
     width: number | string;
@@ -27,7 +25,7 @@ export const SkeletonLoader = ({ width, height, borderRadius = 8, style }: Skele
             -1, // infinite
             false
         );
-    }, []);
+    }, [translateX]);
 
     const animatedStyle = useAnimatedStyle(() => {
         const x = interpolate(translateX.value, [-1, 1], [-width as number, width as number]);

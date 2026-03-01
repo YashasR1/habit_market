@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { CandlestickChart } from 'react-native-wagmi-charts';
-import { TrendingUp, Rocket, CheckSquare, Zap, AlertTriangle, Flame, Activity } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { TrendingUp, Rocket, CheckSquare, Zap, Flame, Activity } from 'lucide-react-native';
 import { useHabits } from '../../context/HabitContext';
 import { Colors } from '../../constants/Colors';
 import { detectPattern } from '../../utils/habitMarketEngine';
@@ -10,9 +9,6 @@ import { detectPattern } from '../../utils/habitMarketEngine';
 import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
-
-// LOW #15: Format candle values as percentages for the tooltip
-const formatCandleValue = (value: number) => `${Math.round(value * 100)}%`;
 
 // MID #10: Get today's day-of-week index (0=Mon ... 6=Sun)
 const getTodayBarIndex = () => {

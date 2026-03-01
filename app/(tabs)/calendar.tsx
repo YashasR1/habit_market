@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Dimensions, TouchableOpacity, Modal, TextInput, FlatList } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { 
-    ChevronLeft, Share2, ChevronDown, Plus, X, Check,
+    ChevronDown, Plus, X, Check,
     Dumbbell, Monitor, Music, BookOpen, BedDouble, 
     Ban, Flame, Zap, Droplets, Moon, Sun, Coffee,
     FlaskConical, Activity
@@ -10,7 +10,6 @@ import { useHabits } from '../../context/HabitContext';
 import { Colors } from '../../constants/Colors';
 import { BlurView } from 'expo-blur';
 
-const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = 55; // NEW: Fixed width for habit columns
 const DATE_COL_WIDTH = 50; // Width for the date column
 

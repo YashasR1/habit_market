@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, Pressable, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
-import { Check, MoreHorizontal, ChevronRight, Zap, FileEdit, ArrowUpRight } from 'lucide-react-native';
+import { Check, MoreHorizontal, ChevronRight, FileEdit, ArrowUpRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 

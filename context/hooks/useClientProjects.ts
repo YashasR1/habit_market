@@ -52,7 +52,10 @@ export const useClientProjects = (triggerSync?: () => void) => {
         new Date().toISOString(),
         "pending",
       );
-      if (triggerSyncFn) triggerSyncFn();
+      // Defer triggerSync to AFTER the current SQLite transaction closes.
+      // Calling it synchronously inside withTransactionSync causes a NullPointerException
+      // on Android because expo-sqlite doesn't allow nested transactions.
+      if (triggerSyncFn) setTimeout(triggerSyncFn, 0);
     } catch (e) {
       console.error("Failed to queue sync", e);
     }
@@ -111,7 +114,7 @@ export const useClientProjects = (triggerSync?: () => void) => {
     try {
       db.withTransactionSync(() => {
         db.runSync("DELETE FROM client_projects WHERE id = ?", id);
-        queueSync("DELETE", "projects", id, { id, name }, triggerSync);
+        queueSync("DELETE", "client_projects", id, { id, name }, triggerSync);
       });
       setClientProjects((prev) => prev.filter((p) => p.id !== id));
     } catch (e) {
@@ -159,13 +162,9 @@ export const useClientProjects = (triggerSync?: () => void) => {
           );
           queueSync(
             "UPDATE",
-            "projects",
+            "client_projects",
             id,
-            {
-              ...updates,
-              lastEditedBy: actor,
-              lastEditedAt: new Date().toISOString(),
-            },
+            merged,
             triggerSync,
           );
         }
@@ -216,9 +215,9 @@ export const useClientProjects = (triggerSync?: () => void) => {
           );
           queueSync(
             "UPDATE",
-            "projects",
+            "client_projects",
             projectId,
-            { media: arr },
+            { ...row, media: JSON.stringify(arr) },
             triggerSync,
           );
         }
@@ -234,6 +233,54 @@ export const useClientProjects = (triggerSync?: () => void) => {
       );
     } catch (e) {
       console.error("Error adding media: ", e);
+    }
+  };
+
+  const deleteProjectMedia = async (
+    projectId: string,
+    projectName: string,
+    mediaUrl: string,
+    actor: string,
+  ) => {
+    try {
+      db.withTransactionSync(() => {
+        const row = db.getFirstSync<any>(
+          "SELECT media FROM client_projects WHERE id = ?",
+          projectId,
+        );
+        if (row) {
+          const arr = row.media ? JSON.parse(row.media) : [];
+          // Filter out the media by matching URL
+          const newArr = arr.filter((m: any) => m.url !== mediaUrl);
+          
+          db.runSync(
+            "UPDATE client_projects SET media=? WHERE id=?",
+            JSON.stringify(newArr),
+            projectId,
+          );
+          queueSync(
+            "UPDATE",
+            "client_projects",
+            projectId,
+            { ...row, media: JSON.stringify(newArr) },
+            triggerSync,
+          );
+        }
+      });
+
+      setClientProjects((prev) =>
+        prev.map((p) => {
+          if (p.id === projectId) {
+            return {
+              ...p,
+              media: (p.media || []).filter((m: any) => m.url !== mediaUrl),
+            };
+          }
+          return p;
+        }),
+      );
+    } catch (e) {
+      console.error("Error deleting media: ", e);
     }
   };
 
@@ -296,6 +343,7 @@ export const useClientProjects = (triggerSync?: () => void) => {
     deleteClientProject,
     updateClientProject,
     addProjectMedia,
+    deleteProjectMedia,
     addSharedFolder,
     migrateSharedFolder,
     deleteSharedFolder,

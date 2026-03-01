@@ -2,7 +2,6 @@ import { Candle } from './habitMarketEngine';
 
 export const generateDummyHistory = (days: number): Candle[] => {
   const history: Candle[] = [];
-  let currentPrice = 0.5; // Start at neutral
   const now = new Date();
   
   for (let i = days; i >= 0; i--) {

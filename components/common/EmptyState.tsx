@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, { 
     useSharedValue, 
     useAnimatedStyle, 
@@ -31,7 +31,7 @@ export const EmptyState = ({ title, description, icon, actionLabel, onAction }: 
             -1,
             true
         );
-    }, []);
+    }, [floatAnim]);
 
     const animatedStyle = useAnimatedStyle(() => {
         return {

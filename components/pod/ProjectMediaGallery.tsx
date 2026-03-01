@@ -1,14 +1,16 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { Trash2 } from 'lucide-react-native';
 import { Colors } from '../../constants/Colors';
 import { VideoItem, MEDIA_ITEM_SIZE } from './MediaItems';
 
 interface ProjectMediaGalleryProps {
   media: any[];
+  onDeleteMedia?: (url: string) => void;
 }
 
-export const ProjectMediaGallery = ({ media }: ProjectMediaGalleryProps) => {
+export const ProjectMediaGallery = ({ media, onDeleteMedia }: ProjectMediaGalleryProps) => {
   if (media.length === 0) return null;
 
   return (
@@ -34,6 +36,27 @@ export const ProjectMediaGallery = ({ media }: ProjectMediaGalleryProps) => {
                 <VideoItem url={item.url} />
               )}
             </TouchableOpacity>
+            {onDeleteMedia && (
+                <TouchableOpacity 
+                    style={styles.deleteBtn}
+                    onPress={() => {
+                        Alert.alert(
+                            "Delete Media",
+                            "Are you sure you want to remove this?",
+                            [
+                                { text: "Cancel", style: "cancel" },
+                                { 
+                                    text: "Delete", 
+                                    style: "destructive",
+                                    onPress: () => onDeleteMedia(item.url)
+                                }
+                            ]
+                        );
+                    }}
+                >
+                    <Trash2 size={16} color={Colors.error} />
+                </TouchableOpacity>
+            )}
             <View style={styles.mediaFooter}>
               <Text style={styles.mediaUploadedBy} numberOfLines={1}>
                 {item.uploadedBy}
@@ -60,8 +83,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
-  mediaGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10 },
-  mediaWrapper: { width: MEDIA_ITEM_SIZE },
+  mediaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  mediaWrapper: { width: MEDIA_ITEM_SIZE, position: 'relative' },
   mediaItem: {
     width: MEDIA_ITEM_SIZE,
     height: MEDIA_ITEM_SIZE,
@@ -81,4 +104,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mediaTime: { color: Colors.textMuted, fontSize: 10 },
+  deleteBtn: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      padding: 6,
+      borderRadius: 15,
+      zIndex: 10,
+  }
 });

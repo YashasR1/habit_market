@@ -11,7 +11,14 @@ export const SyncProvider = ({ children }: { children: React.ReactNode }) => {
 
     // --- AUTHENTICATION ---
     useEffect(() => {
-        signInAnonymously(auth).catch(err => console.error("Anonymous auth failed:", err));
+        signInAnonymously(auth)
+            .then(() => {
+                // Auth is now ready — retry any sync items that were deferred
+                // because the queue processed before auth completed.
+                triggerSync();
+            })
+            .catch(err => console.error("Anonymous auth failed:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (

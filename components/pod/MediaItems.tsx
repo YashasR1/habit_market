@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, Image, TouchableOpacity } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { Colors } from '../../constants/Colors';
 
 const { width } = Dimensions.get('window');
 export const MEDIA_ITEM_SIZE = (width - 50 - 10) / 2; // 2-col grid, accounting for padding + gap
@@ -17,7 +16,7 @@ export const VideoItem = ({ url }: { url: string }) => {
         <VideoView
             style={styles.mediaItem}
             player={player}
-            allowsFullscreen
+            fullscreenOptions={{ enable: true }}
             allowsPictureInPicture
         />
     );

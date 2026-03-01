@@ -33,7 +33,7 @@ const { width } = Dimensions.get("window");
 
 export default function PodScreen() {
   const insets = useSafeAreaInsets();
-  const { notes, addNote, updateNote, deleteNote, folders, addFolder, deleteFolder, clientProjects, addClientProject, deleteClientProject, updateClientProject, addProjectMedia, addNoteMedia, deleteNoteMedia } = usePod();
+  const { notes, addNote, updateNote, deleteNote, folders, addFolder, deleteFolder, clientProjects, addClientProject, deleteClientProject, updateClientProject, addProjectMedia, deleteProjectMedia, addNoteMedia, deleteNoteMedia } = usePod();
   const { userName } = useHabits();
   const params = useLocalSearchParams();
 
@@ -57,22 +57,11 @@ export default function PodScreen() {
   // Re-sync activeProject whenever clientProjects updates (e.g. after addProjectMedia)
   // Intentionally omits activeProject from deps to avoid infinite update loops.
   useEffect(() => {
-    if (activeProject) {
+    if (activeProject?.id) {
       const updated = clientProjects.find((p: any) => p.id === activeProject.id);
       if (updated) setActiveProject(updated);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientProjects]);
-
-  // Re-sync selectedNote whenever notes updates (e.g. after addNoteMedia)
-  // Intentionally omits selectedNote from deps to avoid infinite update loops.
-  useEffect(() => {
-    if (selectedNote) {
-      const updated = notes.find((n: any) => n.id === selectedNote.id);
-      if (updated) setSelectedNote(updated);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes]);
+  }, [clientProjects, activeProject?.id]);
 
   // Folder Management State
   const [isFolderModalVisible, setIsFolderModalVisible] = useState(false);
@@ -103,6 +92,15 @@ export default function PodScreen() {
   const [editorContent, setEditorContent] = useState("");
   const [editorType, setEditorType] = useState("note");
   const [isCreating, setIsCreating] = useState(false);
+
+  // Re-sync selectedNote whenever notes updates (e.g. after addNoteMedia)
+  // Intentionally omits selectedNote from deps to avoid infinite update loops.
+  useEffect(() => {
+    if (selectedNote?.id) {
+      const updated = notes.find((n: any) => n.id === selectedNote.id);
+      if (updated) setSelectedNote(updated);
+    }
+  }, [notes, selectedNote?.id]);
 
   // Handle Note Selection
   const handleSelectNote = (note: any) => {
@@ -426,6 +424,7 @@ export default function PodScreen() {
                 activeProject={activeProject}
                 updateClientProject={updateClientProject}
                 addProjectMedia={addProjectMedia}
+                deleteProjectMedia={deleteProjectMedia}
                 userName={userName}
             />
         ) : (

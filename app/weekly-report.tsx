@@ -1,19 +1,17 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, TrendingUp, TrendingDown, RefreshCcw, ArrowUpRight, ArrowDownRight, Share, CheckCircle2 } from 'lucide-react-native';
+import { ChevronLeft, TrendingUp, TrendingDown, RefreshCcw, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useHabits } from '../context/HabitContext';
 import { Colors } from '../constants/Colors';
-import * as Haptics from 'expo-haptics';
-
 const { width } = Dimensions.get('window');
 
 export default function WeeklyReportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { getWeeklyStats, getWeeklyComparisonData, dailyHabits } = useHabits();
+  const { getWeeklyStats, getWeeklyComparisonData } = useHabits();
 
   const stats = getWeeklyStats();
   const { currentWeekData } = getWeeklyComparisonData();
@@ -163,6 +161,7 @@ export default function WeeklyReportScreen() {
             <View style={styles.winsRow}>
                 {stats.wins.length > 0 ? (
                     stats.wins.map((habit: any) => {
+                        // eslint-disable-next-line @typescript-eslint/no-require-imports
                         const Icon = require('lucide-react-native')[habit.icon] || TrendingUp;
                         return (
                              <View key={habit.id} style={styles.winCard}>

@@ -88,10 +88,15 @@ export const initDB = () => {
         recordId TEXT NOT NULL,
         payload TEXT, -- JSON string of the record data
         timestamp TEXT NOT NULL,
-        status TEXT DEFAULT 'pending' -- 'pending', 'processing', 'failed'
+        status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'failed'
+        retryCount INTEGER DEFAULT 0
       );
     `);
-    
+
+    // Migrations: add columns to existing tables without losing data.
+    // These are no-ops on fresh installs (the column is already in CREATE TABLE above).
+    try { db.execSync('ALTER TABLE sync_queue ADD COLUMN retryCount INTEGER DEFAULT 0;'); } catch { /* column already exists on fresh install */ }
+
     console.log("Database initialized successfully!");
   } catch (error) {
     console.error("Failed to initialize database:", error);

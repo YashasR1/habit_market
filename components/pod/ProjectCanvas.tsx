@@ -24,7 +24,7 @@ import { Colors } from "../../constants/Colors";
 import { useMediaUpload } from "../../context/hooks/useMediaUpload";
 import { ProjectChecklist } from "./ProjectChecklist";
 import { ProjectMediaGallery } from "./ProjectMediaGallery";
-import { useHabits } from "../../context/HabitContext";
+import { useSync } from "../../context/SyncContext";
 
 interface ProjectCanvasProps {
   activeProject: any;
@@ -39,6 +39,7 @@ interface ProjectCanvasProps {
       uploadedAt: string;
     },
   ) => Promise<void>;
+  deleteProjectMedia?: (projectId: string, projectName: string, mediaUrl: string, actor: string) => Promise<void>;
   userName: string;
 }
 
@@ -46,6 +47,7 @@ export const ProjectCanvas = ({
   activeProject,
   updateClientProject,
   addProjectMedia,
+  deleteProjectMedia,
   userName,
 }: ProjectCanvasProps) => {
   const { uploading, uploadMedia } = useMediaUpload();
@@ -167,7 +169,7 @@ export const ProjectCanvas = ({
   }, [tempContent, tempChecklist, activeProject.id, activeProject.name, updateClientProject]);
 
   // Read network state from context
-  const { isOnline, isSyncing } = useHabits();
+  const { isOnline, isSyncing } = useSync();
 
   const handleUpload = async (uri: string, type: "image" | "video") => {
     const url = await uploadMedia(uri, type, activeProject.id);
@@ -288,6 +290,12 @@ export const ProjectCanvas = ({
             setTempChecklist={setTempChecklist}
         />
 
+        {/* MEDIA SECTION (Moved above text editor) */}
+        <ProjectMediaGallery 
+          media={media} 
+          onDeleteMedia={deleteProjectMedia ? (url) => deleteProjectMedia(activeProject.id, activeProject.name, url, userName || "You") : undefined} 
+        />
+
         {/* RICH TEXT TOOLBAR */}
         <RichToolbar
             editor={richText}
@@ -327,9 +335,6 @@ export const ProjectCanvas = ({
                 useContainer={false}
             />
         </View>
-
-        {/* MEDIA SECTION */}
-        <ProjectMediaGallery media={media} />
       </ScrollView>
     </View>
     </KeyboardAvoidingView>
