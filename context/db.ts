@@ -1,16 +1,14 @@
 import * as SQLite from 'expo-sqlite';
 
-// Open or create the database
-export const db = SQLite.openDatabaseSync('habitmarket.db');
-
 // Initialize the database schema
-export const initDB = () => {
+// This is now passed to SQLiteProvider's onInit prop
+export const initDB = async (db: SQLite.SQLiteDatabase) => {
   try {
     // Enable Write-Ahead Logging for better concurrent performance
-    db.execSync('PRAGMA journal_mode = WAL;');
+    await db.execAsync('PRAGMA journal_mode = WAL;');
     
     // Create tables
-    db.execSync(`
+    await db.execAsync(`
       -- Settings (Key-Value store)
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -93,9 +91,8 @@ export const initDB = () => {
       );
     `);
 
-    // Migrations: add columns to existing tables without losing data.
-    // These are no-ops on fresh installs (the column is already in CREATE TABLE above).
-    try { db.execSync('ALTER TABLE sync_queue ADD COLUMN retryCount INTEGER DEFAULT 0;'); } catch { /* column already exists on fresh install */ }
+    // Migrations
+    try { await db.execAsync('ALTER TABLE sync_queue ADD COLUMN retryCount INTEGER DEFAULT 0;'); } catch { /* column already exists on fresh install */ }
 
     console.log("Database initialized successfully!");
   } catch (error) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../db';
+import { useSQLiteContext } from 'expo-sqlite';
 import { Candle } from '../../utils/habitMarketEngine';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -11,6 +11,7 @@ const DEFAULT_FOLDERS = [
 ];
 
 export const useHabitPersistence = () => {
+  const db = useSQLiteContext();
   const [dailyHabits, setDailyHabits] = useState<any[]>([]);
   const [userName, setUserName] = useState('Trader');
   const [isUsernameClaimed, setIsUsernameClaimed] = useState(false);
@@ -34,6 +35,7 @@ export const useHabitPersistence = () => {
   // Load data on mount
   useEffect(() => {
     loadDataFromSQLite();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Save data whenever it changes

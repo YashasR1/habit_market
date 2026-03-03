@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { auth, db as firebaseDb } from '../firebaseConfig';
-import { db as sqliteDb } from './db';
+import { useSQLiteContext } from 'expo-sqlite';
 import { doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 
 const MAX_RETRIES = 3;
 
 export const useSyncEngine = () => {
+    const sqliteDb = useSQLiteContext();
     const [isOnline, setIsOnline] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
 
@@ -115,7 +116,7 @@ export const useSyncEngine = () => {
             setIsSyncing(false);
             isSyncingRef.current = false;
         }
-    }, []);
+    }, [sqliteDb]);
 
     return { isOnline, isSyncing, triggerSync: processSyncQueue };
 };

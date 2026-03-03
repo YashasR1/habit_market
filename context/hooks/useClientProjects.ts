@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { db } from "../db";
+import { useSQLiteContext } from "expo-sqlite";
 
 export const useClientProjects = (triggerSync?: () => void) => {
+  const db = useSQLiteContext();
   const [clientProjects, setClientProjects] = useState<any[]>([]);
   const [sharedFolders, setSharedFolders] = useState<any[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     loadFromSQLite();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadFromSQLite = () => {

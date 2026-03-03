@@ -6,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
 import "react-native-reanimated";
 import { View, Animated, StyleSheet, Text } from "react-native"; // Added imports
+import { SQLiteProvider } from 'expo-sqlite';
 import { Colors } from "../constants/Colors";
 import { Zap } from "lucide-react-native";
 import { initDB } from "../context/db";
@@ -24,9 +25,6 @@ export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from "expo-router";
-
-// Initialize SQLite Schema
-initDB();
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -139,19 +137,17 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
-    return null;
-  }
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SyncProvider>
-        <PodProvider>
-          <HabitProvider>
-            <AppContent />
-          </HabitProvider>
-        </PodProvider>
-      </SyncProvider>
+      <SQLiteProvider databaseName="habitmarket.db" onInit={initDB}>
+        <SyncProvider>
+          <PodProvider>
+            <HabitProvider>
+              <AppContent />
+            </HabitProvider>
+          </PodProvider>
+        </SyncProvider>
+      </SQLiteProvider>
     </GestureHandlerRootView>
   );
 }
