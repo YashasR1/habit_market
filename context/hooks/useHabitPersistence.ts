@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Candle } from '../../utils/habitMarketEngine';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,8 +11,15 @@ const DEFAULT_FOLDERS = [
     { id: 'todo', label: 'To-Do', icon: 'FileText', type: 'user', section: 'library' },
 ];
 
+const DEFAULT_WEB_HABITS = [
+    { id: 'web-habit-1', title: 'Read 10 Pages', icon: 'BookOpen', completed: false, status: 'active', streak: 0 },
+    { id: 'web-habit-2', title: 'Drink Water', icon: 'Droplets', completed: false, status: 'active', streak: 0 },
+    { id: 'web-habit-3', title: 'Workout', icon: 'Dumbbell', completed: false, status: 'active', streak: 0 }
+];
+
 export const useHabitPersistence = () => {
-  const db = useSQLiteContext();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const db = Platform.OS === 'web' ? null : useSQLiteContext();
   const [dailyHabits, setDailyHabits] = useState<any[]>([]);
   const [userName, setUserName] = useState('Trader');
   const [isUsernameClaimed, setIsUsernameClaimed] = useState(false);
@@ -46,10 +54,34 @@ export const useHabitPersistence = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dailyHabits, chartData, lastUpdated, habitHistory, userName, isUsernameClaimed, userAvatar, notes, folders, soundEnabled, hapticsEnabled, isLoaded]);
 
-  const loadDataFromSQLite = () => {
+  const loadDataFromSQLite = async () => {
+    if (Platform.OS === 'web') {
+      try {
+        const storedName = sessionStorage.getItem('web_userName');
+        if (storedName) {
+            setUserName(storedName);
+            setIsUsernameClaimed(true);
+        }
+        
+        const storedHabits = sessionStorage.getItem('web_dailyHabits');
+        if (storedHabits) {
+            setDailyHabits(JSON.parse(storedHabits));
+        } else {
+            setDailyHabits(DEFAULT_WEB_HABITS);
+            sessionStorage.setItem('web_dailyHabits', JSON.stringify(DEFAULT_WEB_HABITS));
+        }
+      } catch (e) {
+        console.warn('Failed to access sessionStorage', e);
+        setDailyHabits(DEFAULT_WEB_HABITS);
+      }
+      setIsLoaded(true);
+      return;
+    }
+    
     try {
-      // 1. Settings
-      const settingsRows = db.getAllSync<{key: string, value: string}>('SELECT * FROM settings;');
+      if (!db) return;
+      
+      const settingsRows = await db.getAllAsync<{key: string, value: string}>('SELECT * FROM settings;');
       const settingsMap = settingsRows.reduce((acc, row) => ({ ...acc, [row.key]: row.value }), {} as any);
       
       setUserName(settingsMap['userName'] || 'Trader');
@@ -64,7 +96,7 @@ export const useHabitPersistence = () => {
       const lastUpdateDate = new Date(storedLastUpdated);
 
       // 2. Habits
-      const loadedHabits = db.getAllSync<any>('SELECT * FROM habits;');
+      const loadedHabits = await db.getAllAsync<any>('SELECT * FROM habits;');
       let processedHabits = loadedHabits.map((h: any) => ({
           ...h,
           completed: h.completed === 1
@@ -94,11 +126,11 @@ export const useHabitPersistence = () => {
       setDailyHabits(processedHabits);
 
       // 3. Chart Data
-      const loadedChart = db.getAllSync<any>('SELECT * FROM chart_data ORDER BY timestamp ASC;');
+      const loadedChart = await db.getAllAsync<any>('SELECT * FROM chart_data ORDER BY timestamp ASC;');
       setChartData(loadedChart);
 
       // 4. Habit History
-      const loadedHistoryRows = db.getAllSync<{dateKey: string, payload: string}>('SELECT * FROM habit_history;');
+      const loadedHistoryRows = await db.getAllAsync<{dateKey: string, payload: string}>('SELECT * FROM habit_history;');
       const historyMap: any = {};
       loadedHistoryRows.forEach(r => {
           historyMap[r.dateKey] = JSON.parse(r.payload);
@@ -106,7 +138,7 @@ export const useHabitPersistence = () => {
       setHabitHistory(historyMap);
 
       // 5. Folders
-      const loadedFolders = db.getAllSync<any>('SELECT * FROM folders;');
+      const loadedFolders = await db.getAllAsync<any>('SELECT * FROM folders;');
       if (loadedFolders.length > 0) {
           setFolders(loadedFolders);
       } else {
@@ -114,7 +146,7 @@ export const useHabitPersistence = () => {
       }
 
       // 6. Notes
-      const loadedNotes = db.getAllSync<any>('SELECT * FROM notes ORDER BY date DESC;');
+      const loadedNotes = await db.getAllAsync<any>('SELECT * FROM notes ORDER BY date DESC;');
       const parsedNotes = loadedNotes.map(n => ({
           ...n,
           media: n.media ? JSON.parse(n.media) : []
@@ -128,9 +160,20 @@ export const useHabitPersistence = () => {
     }
   };
 
-  const saveDataToSQLite = () => {
+  const saveDataToSQLite = async () => {
+    if (Platform.OS === 'web') {
+        try {
+            sessionStorage.setItem('web_dailyHabits', JSON.stringify(dailyHabits));
+            sessionStorage.setItem('web_userName', userName);
+            sessionStorage.setItem('web_isUsernameClaimed', String(isUsernameClaimed));
+        } catch (e) {
+            console.warn('Failed to save to sessionStorage', e);
+        }
+        return; // We do not alert on save in web since it triggers constantly. Mutations themselves will alert.
+    }
+    
     try {
-      db.withTransactionSync(() => {
+        if (!db) return;
         // 1. Settings Upsert
         const settingsToSave = [
             { key: 'userName', val: userName },
@@ -140,63 +183,64 @@ export const useHabitPersistence = () => {
             { key: 'hapticsEnabled', val: hapticsEnabled ? 'true' : 'false' },
             { key: 'lastUpdated', val: lastUpdated }
         ];
-        settingsToSave.forEach(s => {
-            db.runSync('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', s.key, s.val);
-        });
+        for (const s of settingsToSave) {
+            await db.runAsync('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', s.key, s.val);
+        }
 
-        // 2. Habits (clear and insert to handle deletions cleanly for now)
-        db.runSync('DELETE FROM habits');
-        const stmtHabit = db.prepareSync('INSERT INTO habits (id, title, icon, completed, status, streak) VALUES (?, ?, ?, ?, ?, ?)');
-        dailyHabits.forEach(h => {
-            stmtHabit.executeSync([h.id, h.title, h.icon, h.completed ? 1 : 0, h.status || 'active', h.streak || 0]);
-        });
+        // 2. Habits
+        await db.runAsync('DELETE FROM habits');
+        for (const h of dailyHabits) {
+            await db.runAsync('INSERT OR REPLACE INTO habits (id, title, icon, completed, status, streak) VALUES (?, ?, ?, ?, ?, ?)', h.id, h.title, h.icon, h.completed ? 1 : 0, h.status || 'active', h.streak || 0);
+        }
 
         // 3. Chart Data
-        db.runSync('DELETE FROM chart_data');
+        await db.runAsync('DELETE FROM chart_data');
         const trimmedChartData = chartData.length > 90 ? chartData.slice(-90) : chartData;
-        const stmtChart = db.prepareSync('INSERT INTO chart_data (timestamp, actualRate, open, high, low, close) VALUES (?, ?, ?, ?, ?, ?)');
-        trimmedChartData.forEach(c => {
-            stmtChart.executeSync([c.timestamp, c.actualRate || 0, c.open, c.high, c.low, c.close]);
-        });
+        for (const c of trimmedChartData) {
+            await db.runAsync('INSERT OR REPLACE INTO chart_data (timestamp, actualRate, open, high, low, close) VALUES (?, ?, ?, ?, ?, ?)', c.timestamp, c.actualRate || 0, c.open, c.high, c.low, c.close);
+        }
 
         // 4. Habit History
-        db.runSync('DELETE FROM habit_history');
-        const stmtHist = db.prepareSync('INSERT INTO habit_history (dateKey, payload) VALUES (?, ?)');
-        Object.entries(habitHistory).forEach(([dateKey, payload]) => {
-            stmtHist.executeSync([dateKey, JSON.stringify(payload)]);
-        });
+        await db.runAsync('DELETE FROM habit_history');
+        for (const [dateKey, payload] of Object.entries(habitHistory)) {
+            await db.runAsync('INSERT OR REPLACE INTO habit_history (dateKey, payload) VALUES (?, ?)', dateKey, JSON.stringify(payload));
+        }
 
         // 5. Folders
-        db.runSync('DELETE FROM folders');
-        const stmtFolder = db.prepareSync('INSERT INTO folders (id, label, icon, type, section) VALUES (?, ?, ?, ?, ?)');
-        folders.filter((f: any) => f.section === 'library').forEach(f => {
-            stmtFolder.executeSync([f.id, f.label, f.icon, f.type, f.section]);
-        });
+        await db.runAsync('DELETE FROM folders');
+        for (const f of folders.filter((f: any) => f.section === 'library')) {
+            await db.runAsync('INSERT OR REPLACE INTO folders (id, label, icon, type, section) VALUES (?, ?, ?, ?, ?)', f.id, f.label, f.icon, f.type, f.section);
+        }
 
         // 6. Notes
-        db.runSync('DELETE FROM notes');
-        const stmtNote = db.prepareSync('INSERT INTO notes (id, title, content, type, date, media) VALUES (?, ?, ?, ?, ?, ?)');
-        notes.forEach(n => {
-            stmtNote.executeSync([n.id, n.title, n.content, n.type, n.date, n.media ? JSON.stringify(n.media) : '[]']);
-        });
-      });
+        await db.runAsync('DELETE FROM notes');
+        for (const n of notes) {
+            await db.runAsync('INSERT OR REPLACE INTO notes (id, title, content, type, date, media) VALUES (?, ?, ?, ?, ?, ?)', n.id, n.title, n.content, n.type, n.date, n.media ? JSON.stringify(n.media) : '[]');
+        }
     } catch (e) {
       console.error("Failed to save data to SQLite", e);
     }
   };
 
   const resetAppData = async () => {
+      if (Platform.OS === 'web' || !db) {
+          setDailyHabits([]);
+          setHabitHistory({});
+          setChartData([]);
+          setNotes([]);
+          setFolders(DEFAULT_FOLDERS);
+          return;
+      }
+      
       try {
-          db.withTransactionSync(() => {
-              db.runSync('DELETE FROM habits');
-              db.runSync('DELETE FROM chart_data');
-              db.runSync('DELETE FROM habit_history');
-              db.runSync('DELETE FROM settings');
-              db.runSync('DELETE FROM folders');
-              db.runSync('DELETE FROM notes');
-              db.runSync('DELETE FROM client_projects');
-              db.runSync('DELETE FROM sync_queue');
-          });
+              await db.runAsync('DELETE FROM habits');
+              await db.runAsync('DELETE FROM chart_data');
+              await db.runAsync('DELETE FROM habit_history');
+              await db.runAsync('DELETE FROM settings');
+              await db.runAsync('DELETE FROM folders');
+              await db.runAsync('DELETE FROM notes');
+              await db.runAsync('DELETE FROM client_projects');
+              await db.runAsync('DELETE FROM sync_queue');
           
           setDailyHabits([]);
           setHabitHistory({});

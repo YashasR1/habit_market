@@ -1,4 +1,5 @@
 import { createAudioPlayer, AudioPlayer } from 'expo-audio';
+import { Platform } from 'react-native';
 
 // Using a reliable source (Wikipedia Commons) for a simple "pop" sound
 // This is a "Cork Pop" sound
@@ -9,6 +10,7 @@ class SoundService {
   private isLoaded: boolean = false;
 
   async playPop() {
+    if (Platform.OS === 'web') return;
     try {
         if (!this.player) {
              const newSource = { uri: POP_SOUND_URI };

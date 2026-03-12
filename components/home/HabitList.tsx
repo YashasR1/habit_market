@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Pressable, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, TouchableOpacity, Modal, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Check, MoreHorizontal, ChevronRight, FileEdit, ArrowUpRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { AVAILABLE_ICONS } from '../../constants/Icons';
 import { EmptyState } from '../common/EmptyState';
+import { WebCanvasWidget } from '../web-simulation/WebCanvasWidget';
 
 interface HabitListProps {
     activeHabits: any[];
@@ -95,35 +96,39 @@ export const HabitList = ({
                         )}
 
                         {/* CANVAS ACTIVITY WIDGET */}
-                        {recentCanvasEdits && recentCanvasEdits.length > 0 && (
-                            <View style={{ gap: 10 }}>
-                                {recentCanvasEdits.map((edit, idx) => (
-                                    <TouchableOpacity
-                                        key={`${edit.projectId}-${idx}`}
-                                        style={styles.canvasWidget}
-                                        activeOpacity={0.75}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            router.push({ pathname: '/(tabs)/pod', params: { projectId: edit.projectId } });
-                                        }}
-                                    >
-                                        <View style={styles.canvasWidgetLeft}>
-                                            <View style={styles.canvasWidgetIconBox}>
-                                                <FileEdit size={16} color={Colors.primary} />
+                        {Platform.OS === 'web' ? (
+                            <WebCanvasWidget />
+                        ) : (
+                            recentCanvasEdits && recentCanvasEdits.length > 0 && (
+                                <View style={{ gap: 10 }}>
+                                    {recentCanvasEdits.map((edit, idx) => (
+                                        <TouchableOpacity
+                                            key={`${edit.projectId}-${idx}`}
+                                            style={styles.canvasWidget}
+                                            activeOpacity={0.75}
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                router.push({ pathname: '/(tabs)/pod', params: { projectId: edit.projectId } });
+                                            }}
+                                        >
+                                            <View style={styles.canvasWidgetLeft}>
+                                                <View style={styles.canvasWidgetIconBox}>
+                                                    <FileEdit size={16} color={Colors.primary} />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.canvasWidgetTitle} numberOfLines={1}>
+                                                        {edit.editedBy} edited <Text style={{ color: Colors.primary }}>{edit.projectName}</Text>
+                                                    </Text>
+                                                    <Text style={styles.canvasWidgetTime}>
+                                                        {new Date(edit.editedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Assign Canvas
+                                                    </Text>
+                                                </View>
                                             </View>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={styles.canvasWidgetTitle} numberOfLines={1}>
-                                                    {edit.editedBy} edited <Text style={{ color: Colors.primary }}>{edit.projectName}</Text>
-                                                </Text>
-                                                <Text style={styles.canvasWidgetTime}>
-                                                    {new Date(edit.editedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Assign Canvas
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <ArrowUpRight size={16} color={Colors.textMuted} />
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                                            <ArrowUpRight size={16} color={Colors.textMuted} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )
                         )}
 
                     </View>

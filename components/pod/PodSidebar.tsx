@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { 
-    ChevronDown, ChevronRight, Trash2, FileText, Briefcase, Plus, MoreVertical
+    ChevronDown, ChevronRight, Trash2, FileText, Briefcase, Plus, MoreVertical, Edit2
 } from 'lucide-react-native';
 import { EmptyState } from '../common/EmptyState';
 
@@ -25,6 +25,7 @@ interface PodSidebarProps {
     handleCreateNewProject: (folderId: string) => void;
     confirmDeleteFolder: (id: string) => void;
     confirmDeleteProject: (id: string) => void;
+    onEditFolder: (folder: any) => void;
 }
 
 export const PodSidebar = ({
@@ -43,7 +44,8 @@ export const PodSidebar = ({
     handleCreateNew,
     handleCreateNewProject,
     confirmDeleteFolder,
-    confirmDeleteProject
+    confirmDeleteProject,
+    onEditFolder
 }: PodSidebarProps) => {
 
     const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
@@ -92,9 +94,14 @@ export const PodSidebar = ({
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <Text style={{ color: Colors.textMuted, fontSize: 13 }}>{items.length}</Text>
                           {!isSystem && isActive && (
-                              <TouchableOpacity onPress={() => confirmDeleteFolder(cat.id)}>
-                                  <Trash2 size={14} color={Colors.error} />
-                              </TouchableOpacity>
+                              <>
+                                  <TouchableOpacity onPress={() => onEditFolder(cat)}>
+                                      <Edit2 size={14} color={Colors.textSecondary} />
+                                  </TouchableOpacity>
+                                  <TouchableOpacity onPress={() => confirmDeleteFolder(cat.id)}>
+                                      <Trash2 size={14} color={Colors.error} />
+                                  </TouchableOpacity>
+                              </>
                           )}
                       </View>
                   </TouchableOpacity>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -10,13 +10,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { CircleUser, Plus, TrendingUp, Shield, Rocket, Diamond, Crown, Bot, Zap } from 'lucide-react-native';
+import { CircleUser, Plus, TrendingUp, Shield, Rocket, Diamond, Crown, Bot, Zap, Cake } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useHabits } from '../../context/HabitContext';
 import { usePod } from '../../context/PodContext';
 import { Colors } from '../../constants/Colors';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Components
 import { OnboardingModal } from '../../components/home/OnboardingModal';
@@ -25,6 +24,7 @@ import { HabitList } from '../../components/home/HabitList';
 import { AddHabitModal } from '../../components/home/AddHabitModal';
 import { ManageHabitModal } from '../../components/home/ManageHabitModal';
 import { SkeletonLoader } from '../../components/common/SkeletonLoader';
+import { WebInfoOverlay } from '../../components/web-simulation/WebInfoOverlay';
 
 // Avatar config — mirrors profile.tsx AVATARS
 const AVATAR_MAP: Record<string, { icon: any; color: string }> = {
@@ -49,7 +49,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function DailyFocusScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { dailyHabits, updateMarket, addHabit, removeHabit, toggleHabit, pauseHabit, archiveHabit, userName, updateUserName, userAvatar } = useHabits();
+  const { dailyHabits, updateMarket, addHabit, removeHabit, toggleHabit, pauseHabit, archiveHabit, userName, updateUserName, userAvatar, isUsernameClaimed } = useHabits();
   const { clientProjects, isLoaded } = usePod();
   
   // Resolve avatar icon — falls back to CircleUser if default (TrendingUp is profile default, not home default)
@@ -61,6 +61,7 @@ export default function DailyFocusScreen() {
   
   // Modals State
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [showBirthdayWebModal, setShowBirthdayWebModal] = useState(false);
   
   // Create / Edit State
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -68,25 +69,6 @@ export default function DailyFocusScreen() {
 
   // Delete Confirmation State
   const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
-
-  // Onboarding State
-  const [showOnboarding, setShowOnboarding] = useState(false);
-
-  useEffect(() => {
-    checkOnboarding();
-  }, []);
-
-  const checkOnboarding = async () => {
-    const hasSeen = await AsyncStorage.getItem('HAS_SEEN_ONBOARDING');
-    if (!hasSeen) {
-      setShowOnboarding(true);
-    }
-  };
-
-  const closeOnboarding = async () => {
-    setShowOnboarding(false);
-    await AsyncStorage.setItem('HAS_SEEN_ONBOARDING', 'true');
-  };
 
   const handleAddTask = () => {
     if (newTaskTitle.trim().length > 0) {
@@ -124,8 +106,10 @@ export default function DailyFocusScreen() {
     return 'Good evening';
   }, []);
     
-  // Canvas activity widget: find the most recently edited projects
+  // Canvas activity widget: find the most recently edited projects (Web Simulation Only)
   const recentCanvasEdits = useMemo(() => {
+    if (Platform.OS !== 'web') return null;
+    
     const edited = (clientProjects || [])
       .filter((p: any) => p.lastEditedAt)
       .sort((a: any, b: any) => new Date(b.lastEditedAt).getTime() - new Date(a.lastEditedAt).getTime())
@@ -144,10 +128,32 @@ export default function DailyFocusScreen() {
       
       {/* 1. ONBOARDING OVERLAY */}
       <OnboardingModal 
-        visible={showOnboarding}
+        visible={isLoaded && !isUsernameClaimed}
         userName={userName}
         updateUserName={updateUserName}
-        onClose={closeOnboarding}
+        onClose={() => {}}
+      />
+
+      {/* WEB BIRHTDAY OVERLAY */}
+      <WebInfoOverlay
+          isVisible={showBirthdayWebModal}
+          onClose={() => setShowBirthdayWebModal(false)}
+          title="Birthday Reminders"
+          introHighlightText="Native Feature"
+          introRestText="Birthday push notifications are only fully supported on mobile."
+          features={[
+              {
+                  title: "Annual Tracking",
+                  description: "When using the native Mobile App, you can save your friends' birthdays locally and safely.",
+                  icon: "arrow"
+              },
+              {
+                  title: "Local Push Notifications",
+                  description: "The App uses expo-notifications to schedule a background push message 1-day before the saved date every single year.",
+                  icon: "arrow"
+              }
+          ]}
+          nativeDisclaimerDesc="Please build checking out HabitMarket on Android or iOS to use."
       />
 
       {/* 2. MANAGE HABIT MODAL */}
@@ -166,6 +172,16 @@ export default function DailyFocusScreen() {
           <Text style={styles.greetingName}>{userName}</Text>
         </View>
         <View style={styles.headerActions}>
+          <Pressable onPress={() => {
+              if (Platform.OS === 'web') {
+                  setShowBirthdayWebModal(true);
+              } else {
+                  router.push('/birthdays' as any);
+              }
+          }} style={styles.headerBtn}>
+              <Cake color={Colors.text} size={24} strokeWidth={1.5} />
+          </Pressable>
+
           <Pressable onPress={() => router.push('/profile')} style={styles.profileButton}>
             {AvatarIcon
               ? <AvatarIcon color={avatarColor} size={28} strokeWidth={1.5} />

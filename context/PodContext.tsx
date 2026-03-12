@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect } from 'react';
-import { useHabitPersistence } from './hooks/useHabitPersistence';
+import { Platform } from 'react-native';
+import { useHabits } from './HabitContext';
 import { useClientProjects } from './hooks/useClientProjects';
 import { useSync } from './SyncContext';
 import { auth, db } from '../firebaseConfig';
@@ -11,13 +12,13 @@ const PodContext = createContext<any>(null);
 
 export const PodProvider = ({ children }: { children: React.ReactNode }) => {
     
-    // We still need userName and isLoaded from persistence for context
+    // Pull the truly live, globally synchronized user data from the HabitContext
     const {
         userName,
         notes, setNotes,
         folders, setFolders,
         isLoaded: isPersistenceLoaded
-    } = useHabitPersistence();
+    } = useHabits();
 
     const { triggerSync } = useSync();
 
@@ -32,8 +33,10 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
         deleteProjectMedia,
         addSharedFolder,
         migrateSharedFolder,
-        deleteSharedFolder
-    } = useClientProjects(triggerSync);
+        updateSharedFolder,
+        deleteSharedFolder,
+        fetchFromCloud
+    } = useClientProjects(userName, triggerSync);
 
     const isLoaded = isPersistenceLoaded && isProjectsLoaded;
 
@@ -41,11 +44,16 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
     // Firestore rules check: get(/users/{createdBy}).uid == request.auth.uid
     // This effect writes that mapping so ownership checks pass for anonymous auth users.
     useEffect(() => {
+        if (Platform.OS === 'web') return;
         if (!isLoaded || !userName) return;
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
                 setDoc(doc(db, 'users', userName), { uid: user.uid }, { merge: true })
-                    .catch(err => console.error('[AUTH] Failed to register user mapping:', err));
+                    .catch((err: any) => {
+                        if (!err.message?.includes('permissions')) {
+                            console.error('[AUTH] Failed to register user mapping:', err);
+                        }
+                    });
             }
         });
         return () => unsubscribe();
@@ -68,6 +76,7 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
 
     // --- NOTIFICATIONS: Listen for peer activity ---
     useEffect(() => {
+        if (Platform.OS === 'web') return;
         if (!isLoaded || !userName) return;
 
         // 2. Listen for NEW activity only (from now onwards)
@@ -186,9 +195,11 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
                 addClientProject(name, folderId, userName, assignedTo);
             },
             deleteClientProject: (id: string, name: string) => deleteClientProject(id, name, userName),
-            updateClientProject: (id: string, name: string, updates: any) => updateClientProject(id, name, updates, userName),
+            updateClientProject: (id: string, name: string, updates: any, silent?: boolean) => updateClientProject(id, name, updates, userName, silent),
             addProjectMedia: (projectId: string, projectName: string, mediaItem: any) => addProjectMedia(projectId, projectName, mediaItem, userName),
             deleteProjectMedia: (projectId: string, projectName: string, mediaUrl: string) => deleteProjectMedia(projectId, projectName, mediaUrl, userName),
+            updateSharedFolder: (id: string, name: string, assignedTo?: string) => updateSharedFolder(id, name, assignedTo),
+            fetchFromCloud,
             isLoaded
         }}>
             {children}

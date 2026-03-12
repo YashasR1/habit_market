@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Trash2 } from 'lucide-react-native';
 import { Colors } from '../../constants/Colors';
@@ -11,7 +11,22 @@ interface ProjectMediaGalleryProps {
 }
 
 export const ProjectMediaGallery = ({ media, onDeleteMedia }: ProjectMediaGalleryProps) => {
+  const [loadedIndex, setLoadedIndex] = useState(0);
+
+  // Auto-advance if current item is a video
+  React.useEffect(() => {
+    if (media.length > 0 && loadedIndex < media.length) {
+      if (media[loadedIndex].type !== 'image') {
+        handleMediaLoadNext();
+      }
+    }
+  }, [loadedIndex, media]);
+
   if (media.length === 0) return null;
+
+  const handleMediaLoadNext = () => {
+    setLoadedIndex((prev) => prev + 1);
+  };
 
   return (
     <View style={styles.mediaSection}>
@@ -27,13 +42,25 @@ export const ProjectMediaGallery = ({ media, onDeleteMedia }: ProjectMediaGaller
           >
             <TouchableOpacity activeOpacity={0.9}>
               {item.type === "image" ? (
-                <Image
-                  source={{ uri: item.url }}
-                  style={styles.mediaItem}
-                  resizeMode="cover"
-                />
+                <View style={styles.mediaItem}>
+                  {idx <= loadedIndex ? (
+                    <Image
+                      source={{ uri: item.url }}
+                      style={styles.mediaItemContent}
+                      resizeMode="cover"
+                      onLoad={idx === loadedIndex ? handleMediaLoadNext : undefined}
+                      onError={idx === loadedIndex ? handleMediaLoadNext : undefined}
+                    />
+                  ) : (
+                    <View style={styles.loadingPlaceholder}>
+                      <ActivityIndicator size="small" color={Colors.primary} />
+                    </View>
+                  )}
+                </View>
               ) : (
-                <VideoItem url={item.url} />
+                <View style={styles.mediaItem}>
+                    <VideoItem url={item.url} />
+                </View>
               )}
             </TouchableOpacity>
             {onDeleteMedia && (
@@ -90,6 +117,17 @@ const styles = StyleSheet.create({
     height: MEDIA_ITEM_SIZE,
     borderRadius: 10,
     backgroundColor: "#1E293B",
+    overflow: "hidden",
+  },
+  mediaItemContent: {
+    width: "100%",
+    height: "100%",
+  },
+  loadingPlaceholder: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   mediaFooter: {
     flexDirection: "row",

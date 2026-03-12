@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Dimensions, TouchableOpacity, Platform } from 'react-native';
 import { CandlestickChart } from 'react-native-wagmi-charts';
 import { TrendingUp, Rocket, CheckSquare, Zap, Flame, Activity } from 'lucide-react-native';
 import { useHabits } from '../../context/HabitContext';
 import { Colors } from '../../constants/Colors';
+import { WebInfoOverlay } from '../../components/web-simulation/WebInfoOverlay';
 import { detectPattern } from '../../utils/habitMarketEngine';
 
 import { useRouter } from 'expo-router';
@@ -22,6 +23,7 @@ export default function ImpactScreen() {
   
   const { currentWeekData, pastWeekData } = getWeeklyComparisonData();
   const todayBarIndex = getTodayBarIndex();
+  const [showWebInfoOverlay, setShowWebInfoOverlay] = React.useState(Platform.OS === 'web');
 
   // HIGH #2: Today's live score based on actual completion rate (not the cumulative chart price)
   const todayEfficiency = useMemo(() => {
@@ -213,10 +215,26 @@ export default function ImpactScreen() {
         </View>
       </View>
 
+      {/* WEB SIMULATION: INFO MODAL (IMPACT TAB) */}
+      <WebInfoOverlay 
+          isVisible={showWebInfoOverlay}
+          onClose={() => setShowWebInfoOverlay(false)}
+          title="Impact Analytics"
+          introHighlightText="Impact"
+          introRestText="tab tracks your long-term success with beautiful interactive stock-market style candlestick charts and local SQLite aggregated data."
+          features={[
+              {
+                  title: "Habit Market Charts",
+                  description: "View your daily performance as Green and Red candles. Pinch to zoom, pan through history, and see your personal trend lines calculated via native threads.",
+                  icon: "arrow"
+              }
+          ]}
+          nativeDisclaimerDesc="Because this feature mandates background execution tasks and gesture-heavy canvas charting, it is uniquely built for the HabitMarket Mobile App!"
+      />
 
     </ScrollView>
   );
-}
+};
 
 const StatItem = ({ icon, label, value }: any) => (
   <View style={styles.statItem}>
@@ -268,5 +286,5 @@ const styles = StyleSheet.create({
   barGroup: { alignItems: 'center', justifyContent: 'flex-end' },
   barWrapper: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 100 },
   bar: { width: 8, borderRadius: 4 },
-  barLabel: { color: Colors.textSecondary, fontSize: 10, marginTop: 8, textAlign: 'center' }
+  barLabel: { color: Colors.textSecondary, fontSize: 10, marginTop: 8, textAlign: 'center' },
 });

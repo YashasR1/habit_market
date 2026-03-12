@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Modal, TextInput, Platform } from 'react-native';
 import { 
     ChevronDown, Plus, X, Check,
     Dumbbell, Monitor, Music, BookOpen, BedDouble, 
@@ -9,6 +9,7 @@ import {
 import { useHabits } from '../../context/HabitContext';
 import { Colors } from '../../constants/Colors';
 import { BlurView } from 'expo-blur';
+import { WebInfoOverlay } from '../../components/web-simulation/WebInfoOverlay';
 
 const COLUMN_WIDTH = 55; // NEW: Fixed width for habit columns
 const DATE_COL_WIDTH = 50; // Width for the date column
@@ -40,6 +41,27 @@ export default function CalendarScreen() {
   const [isMonthPickerVisible, setIsMonthPickerVisible] = useState(false); // NEW
   const [newHabitTitle, setNewHabitTitle] = useState('');
   const [newHabitIcon, setNewHabitIcon] = useState('Dumbbell'); // Default icon
+  const [showWebInfoOverlay, setShowWebInfoOverlay] = useState(Platform.OS === 'web');
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const ROW_HEIGHT = 52; // 48 height + 4 marginBottom
+
+  // Auto-scroll to today if viewing the current month
+  useEffect(() => {
+     const today = new Date();
+     if (
+         selectedMonth.getMonth() === today.getMonth() && 
+         selectedMonth.getFullYear() === today.getFullYear()
+     ) {
+         // Tiny timeout ensures the view has laid out before scrolling
+         setTimeout(() => {
+             const dayOfMonth = today.getDate();
+             // Center it roughly or align to top; we scroll slightly above today
+             const scrollPosition = Math.max(0, (dayOfMonth - 2) * ROW_HEIGHT); 
+             scrollViewRef.current?.scrollTo({ y: scrollPosition, animated: true });
+         }, 100);
+     }
+  }, [selectedMonth]);
 
   // Generate days for the selected month
   const daysInMonth = useMemo(() => {
@@ -111,7 +133,10 @@ export default function CalendarScreen() {
               </View>
 
               {/* MAIN GRID BODY */}
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView 
+                ref={scrollViewRef}
+                showsVerticalScrollIndicator={false}
+              >
                 {daysInMonth.map((date, index) => {
                   const dateKey = date.toDateString();
                   const dayData = habitHistory[dateKey] || {};
@@ -249,6 +274,24 @@ export default function CalendarScreen() {
             </View>
         </BlurView>
       </Modal>
+
+      {/* WEB SIMULATION: INFO MODAL (SCHEDULE TAB) */}
+      <WebInfoOverlay 
+          isVisible={showWebInfoOverlay}
+          onClose={() => setShowWebInfoOverlay(false)}
+          title="Schedule Assistant"
+          introHighlightText="Schedule"
+          introRestText="tab turns your habits into actionable timelines using integrated device calendars and local push notifications."
+          features={[
+              {
+                  title: "Smart Reminders",
+                  description: "Schedule specific times for habits and receive rich push notifications directly on your mobile device lock screen.",
+                  icon: "arrow"
+              }
+          ]}
+          nativeDisclaimerDesc="Because this feature mandates background execution tasks and native calendar synchronisation, it is uniquely built for the HabitMarket Mobile App!"
+      />
+
     </View>
   );
 }
@@ -347,5 +390,5 @@ const styles = StyleSheet.create({
       borderColor: Colors.primary
   },
   monthItemText: { color: Colors.textSecondary, fontWeight: '600' },
-  monthItemTextSelected: { color: '#FFF', fontWeight: 'bold' }
+  monthItemTextSelected: { color: '#FFF', fontWeight: 'bold' },
 });

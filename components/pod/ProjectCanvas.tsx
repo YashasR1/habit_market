@@ -28,7 +28,7 @@ import { useSync } from "../../context/SyncContext";
 
 interface ProjectCanvasProps {
   activeProject: any;
-  updateClientProject: (id: string, name: string, updates: any) => void;
+  updateClientProject: (id: string, name: string, updates: any, silent?: boolean) => void;
   addProjectMedia: (
     projectId: string,
     projectName: string,
@@ -113,6 +113,10 @@ export const ProjectCanvas = ({
   };
 
   const handlePickImage = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert("Native Feature", "Uploading images is only available in the HabitMarket Mobile App.");
+      return;
+    }
     if (!(await requestPermission())) return;
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -121,11 +125,11 @@ export const ProjectCanvas = ({
         allowsEditing: false,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Compress image before uploading
+        // Compress image before uploading for Native devices
         const manipResult = await ImageManipulator.manipulateAsync(
-          result.assets[0].uri,
-          [{ resize: { width: 1080 } }], // Resize to max 1080p width
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compress to 70% quality JPEG
+            result.assets[0].uri,
+            [{ resize: { width: 1080 } }], // Resize to max 1080p width
+            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compress to 70% quality JPEG
         );
         await handleUpload(manipResult.uri, "image");
       }
@@ -136,6 +140,10 @@ export const ProjectCanvas = ({
   };
 
   const handlePickVideo = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert("Native Feature", "Uploading videos is only available in the HabitMarket Mobile App.");
+      return;
+    }
     if (!(await requestPermission())) return;
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -155,21 +163,40 @@ export const ProjectCanvas = ({
 
   const [isSavingLocally, setIsSavingLocally] = useState(false);
 
-  // Auto-save debouncing for content changes
+  // Read network state from context. Syncing is now manually triggered via button
+  const { isOnline, isSyncing, triggerSync } = useSync();
+  const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false);
+  const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+
+  // Auto-save debouncing for content changes to LOCAL SQLite
+  // Cloud sync requires manual button press now
   useEffect(() => {
+    // Only trigger save if content actually changed from what's currently in DB
+    const isContentDirty = tempContent !== (activeProject.content || "");
+    
+    const activeRaw = activeProject.checklist || [];
+    const tempTrimmed = tempChecklist.filter(c => c.text !== ''); // Ignore empty trailing checkboxes
+    const isChecklistDirty = JSON.stringify(tempTrimmed) !== JSON.stringify(activeRaw);
+    
+    // Also trigger if the username finally synced over but the project hasn't stamped it
+    const isNameDirty = userName !== 'Trader' && activeProject.lastEditedBy !== userName;
+
+    if (!isContentDirty && !isChecklistDirty && !isNameDirty) return;
+
     setIsSavingLocally(true);
+    setHasUnsyncedChanges(true); // Flag to show the user they need to click "Sync to Cloud"
+    
     const timeoutId = setTimeout(() => {
        updateClientProject(activeProject.id, activeProject.name, {
          content: tempContent,
          checklist: tempChecklist,
-       });
+         lastEditedBy: userName,
+         lastEditedAt: new Date().toISOString()
+       }, true);
        setIsSavingLocally(false);
     }, 1200);
     return () => clearTimeout(timeoutId);
-  }, [tempContent, tempChecklist, activeProject.id, activeProject.name, updateClientProject]);
-
-  // Read network state from context
-  const { isOnline, isSyncing } = useSync();
+  }, [tempContent, tempChecklist, activeProject.id, activeProject.name, activeProject.content, activeProject.checklist, activeProject.lastEditedBy, updateClientProject, userName]);
 
   const handleUpload = async (uri: string, type: "image" | "video") => {
     const url = await uploadMedia(uri, type, activeProject.id);
@@ -184,7 +211,7 @@ export const ProjectCanvas = ({
       updateClientProject(activeProject.id, activeProject.name, {
         lastEditedBy: userName || "You",
         lastEditedAt: new Date().toISOString(),
-      });
+      }, true);
     } else {
       Alert.alert(
         "Upload failed",
@@ -203,11 +230,32 @@ export const ProjectCanvas = ({
              <Check size={14} color={Colors.error} />
              <Text style={[styles.savedBadgeText, { color: Colors.error }]}>Offline (Saving Locally)</Text>
           </View>
-        ) : isSyncing || isSavingLocally ? (
+        ) : isSyncing ? (
           <View style={[styles.savedBadge, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
              <ActivityIndicator size="small" color={Colors.primary} />
-             <Text style={[styles.savedBadgeText, { color: Colors.primary }]}>Syncing...</Text>
+             <Text style={[styles.savedBadgeText, { color: Colors.primary }]}>Saving...</Text>
           </View>
+        ) : showSyncSuccess ? (
+          <View style={styles.savedBadge}>
+            <Check size={14} color={Colors.success} />
+            <Text style={styles.savedBadgeText}>Synced to Cloud</Text>
+          </View>
+        ) : hasUnsyncedChanges || isSavingLocally ? (
+          <TouchableOpacity 
+             style={[styles.savedBadge, { backgroundColor: Colors.primary }]}
+             onPress={async () => {
+                 setHasUnsyncedChanges(false);
+                 if (triggerSync) {
+                     await triggerSync();
+                     // Flash the success badge for 2 seconds
+                     setShowSyncSuccess(true);
+                     setTimeout(() => setShowSyncSuccess(false), 2000);
+                 }
+             }}
+          >
+             <Check size={14} color="#FFF" />
+             <Text style={[styles.savedBadgeText, { color: "#FFF", fontWeight: '600' }]}>Sync to Cloud</Text>
+          </TouchableOpacity>
         ) : (
           <View style={styles.savedBadge}>
             <Check size={14} color={Colors.success} />
@@ -297,43 +345,56 @@ export const ProjectCanvas = ({
         />
 
         {/* RICH TEXT TOOLBAR */}
-        <RichToolbar
-            editor={richText}
-            actions={[
-                actions.setBold,
-                actions.setItalic,
-                actions.setUnderline,
-                actions.insertBulletsList,
-                actions.insertOrderedList,
-                actions.heading1,
-                actions.heading2,
-            ]}
-            iconTint={Colors.textSecondary}
-            selectedIconTint={Colors.primary}
-            style={styles.richToolbar}
-        />
+        {Platform.OS !== 'web' && (
+            <RichToolbar
+                editor={richText}
+                actions={[
+                    actions.setBold,
+                    actions.setItalic,
+                    actions.setUnderline,
+                    actions.insertBulletsList,
+                    actions.insertOrderedList,
+                    actions.heading1,
+                    actions.heading2,
+                ]}
+                iconTint={Colors.textSecondary}
+                selectedIconTint={Colors.primary}
+                style={styles.richToolbar}
+            />
+        )}
 
         {/* TEXT CONTENT */}
-        <View style={styles.editorContainer}>
-            <RichEditor
-                ref={richText}
-                initialContentHTML={tempContent}
-                onChange={(descriptionText) => {
-                    setTempContent(descriptionText);
-                }}
-                placeholder="Write project specs, notes, or ideas here..."
-                editorStyle={{
-                    backgroundColor: Colors.background,
-                    color: Colors.text,
-                    placeholderColor: Colors.textMuted,
-                    cssText: `
-                        body { font-family: sans-serif; font-size: 16px; margin: 0; padding: 10px 0; }
-                        h1 { font-size: 24px; color: ${Colors.primary}; }
-                        h2 { font-size: 20px; }
-                    `
-                }}
-                useContainer={false}
-            />
+        <View style={[styles.editorContainer, Platform.OS === 'web' && { padding: 10 }]}>
+            {Platform.OS === 'web' ? (
+                <TextInput
+                    style={{ flex: 1, minHeight: 400, color: Colors.text, fontSize: 16 }}
+                    multiline
+                    placeholder="Write project specs, notes, or ideas here... (Rich Text disabled in Web Simulation)"
+                    placeholderTextColor={Colors.textMuted}
+                    value={(tempContent || '').replace(/<[^>]*>?/gm, '')} // Strip HTML for plain text view
+                    onChangeText={setTempContent}
+                />
+            ) : (
+                <RichEditor
+                    ref={richText}
+                    initialContentHTML={tempContent}
+                    onChange={(descriptionText) => {
+                        setTempContent(descriptionText);
+                    }}
+                    placeholder="Write project specs, notes, or ideas here..."
+                    editorStyle={{
+                        backgroundColor: Colors.background,
+                        color: Colors.text,
+                        placeholderColor: Colors.textMuted,
+                        cssText: `
+                            body { font-family: sans-serif; font-size: 16px; margin: 0; padding: 10px 0; }
+                            h1 { font-size: 24px; color: ${Colors.primary}; }
+                            h2 { font-size: 20px; }
+                        `
+                    }}
+                    useContainer={false}
+                />
+            )}
         </View>
       </ScrollView>
     </View>

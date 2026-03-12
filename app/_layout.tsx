@@ -5,21 +5,27 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
 import "react-native-reanimated";
-import { View, Animated, StyleSheet, Text } from "react-native"; // Added imports
+import { View, Animated, StyleSheet, Text, Platform } from "react-native";
 import { SQLiteProvider } from 'expo-sqlite';
 import { Colors } from "../constants/Colors";
 import { Zap } from "lucide-react-native";
 import { initDB } from "../context/db";
 
-// Import your custom context
 import { HabitProvider, useHabits } from "../context/HabitContext";
-import { SyncProvider } from "../context/SyncContext";
+import { SyncProvider, SyncContext } from "../context/SyncContext";
 import { PodProvider, usePod } from "../context/PodContext";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Initialize Firebase
 import "../firebaseConfig";
+
+// Dummy provider to bypass the real SyncProvider which depends on expo-sqlite hooks
+const WebSyncProvider = ({ children }: { children: React.ReactNode }) => (
+  <SyncContext.Provider value={{ isOnline: true, isSyncing: false, triggerSync: () => {} }}>
+    {children}
+  </SyncContext.Provider>
+);
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -139,17 +145,28 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SQLiteProvider databaseName="habitmarket.db" onInit={initDB}>
-        <SyncProvider>
-          <PodProvider>
-            <HabitProvider>
+      {Platform.OS === 'web' ? (
+        <WebSyncProvider>
+          <HabitProvider>
+            <PodProvider>
               <AppContent />
+            </PodProvider>
+          </HabitProvider>
+        </WebSyncProvider>
+      ) : (
+        <SQLiteProvider databaseName="habitmarket.db" onInit={initDB}>
+          <SyncProvider>
+            <HabitProvider>
+              <PodProvider>
+                <AppContent />
+              </PodProvider>
             </HabitProvider>
-          </PodProvider>
-        </SyncProvider>
-      </SQLiteProvider>
+          </SyncProvider>
+        </SQLiteProvider>
+      )}
     </GestureHandlerRootView>
   );
+
 }
 
 const styles = StyleSheet.create({

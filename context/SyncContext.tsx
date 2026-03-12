@@ -3,7 +3,7 @@ import { auth } from '../firebaseConfig';
 import { signInAnonymously } from 'firebase/auth';
 import { useSyncEngine as useSyncEngineHook } from './syncEngine';
 
-const SyncContext = createContext<any>(null);
+export const SyncContext = createContext<any>(null);
 
 export const SyncProvider = ({ children }: { children: React.ReactNode }) => {
     // 1. Background Sync Engine

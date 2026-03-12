@@ -89,6 +89,14 @@ export const initDB = async (db: SQLite.SQLiteDatabase) => {
         status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'failed'
         retryCount INTEGER DEFAULT 0
       );
+
+      -- Birthdays
+      CREATE TABLE IF NOT EXISTS birthdays (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        date TEXT NOT NULL,
+        info TEXT
+      );
     `);
 
     // Migrations

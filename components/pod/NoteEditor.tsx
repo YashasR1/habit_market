@@ -33,11 +33,27 @@ export const NoteEditor = ({
     deleteNoteMedia,
     userName
 }: NoteEditorProps) => {
-    const media = activeNote?.media || [];
+    const media = React.useMemo(() => activeNote?.media || [], [activeNote?.media]);
 
     // Local loading state just to prevent double taps
     const [isProcessing, setIsProcessing] = React.useState(false);
     
+    // Sequential Image Loading State
+    const [loadedIndex, setLoadedIndex] = React.useState(0);
+
+    // Auto-advance if current media item is a video
+    React.useEffect(() => {
+      if (media.length > 0 && loadedIndex < media.length) {
+        if (media[loadedIndex].type !== 'image') {
+          handleMediaLoadNext();
+        }
+      }
+    }, [loadedIndex, media]);
+
+    const handleMediaLoadNext = () => {
+      setLoadedIndex((prev) => prev + 1);
+    };
+
     // Rich Text Editor Ref
     const richText = useRef<RichEditor>(null);
 
@@ -51,6 +67,10 @@ export const NoteEditor = ({
     };
 
     const handlePickImage = async () => {
+        if (Platform.OS === 'web') {
+            Alert.alert("Native Feature", "Uploading images is only available in the HabitMarket Mobile App.");
+            return;
+        }
         if (!(await requestPermission())) return;
         setIsProcessing(true);
         try {
@@ -71,6 +91,10 @@ export const NoteEditor = ({
     };
 
     const handlePickVideo = async () => {
+        if (Platform.OS === 'web') {
+            Alert.alert("Native Feature", "Uploading videos is only available in the HabitMarket Mobile App.");
+            return;
+        }
         if (!(await requestPermission())) return;
         setIsProcessing(true);
         try {
@@ -139,42 +163,55 @@ export const NoteEditor = ({
 
             <View style={styles.canvasSeparator} />
 
-            <RichToolbar
-              editor={richText}
-              actions={[
-                  actions.setBold,
-                  actions.setItalic,
-                  actions.setUnderline,
-                  actions.insertBulletsList,
-                  actions.insertOrderedList,
-                  actions.heading1,
-                  actions.heading2,
-              ]}
-              iconTint={Colors.textSecondary}
-              selectedIconTint={Colors.primary}
-              style={styles.richToolbar}
-            />
-
-            <View style={styles.editorContainer}>
-                <RichEditor
-                  ref={richText}
-                  initialContentHTML={editorContent}
-                  onChange={(descriptionText) => {
-                      setEditorContent(descriptionText);
-                  }}
-                  placeholder="Start typing your note here..."
-                  editorStyle={{
-                      backgroundColor: Colors.background,
-                      color: Colors.text,
-                      placeholderColor: Colors.textMuted,
-                      cssText: `
-                          body { font-family: sans-serif; font-size: 16px; margin: 0; padding: 10px 0; }
-                          h1 { font-size: 24px; color: ${Colors.primary}; }
-                          h2 { font-size: 20px; }
-                      `
-                  }}
-                  useContainer={false} // Lets it grow within ScrollView
+            {Platform.OS !== 'web' && (
+                <RichToolbar
+                editor={richText}
+                actions={[
+                    actions.setBold,
+                    actions.setItalic,
+                    actions.setUnderline,
+                    actions.insertBulletsList,
+                    actions.insertOrderedList,
+                    actions.heading1,
+                    actions.heading2,
+                ]}
+                iconTint={Colors.textSecondary}
+                selectedIconTint={Colors.primary}
+                style={styles.richToolbar}
                 />
+            )}
+
+            <View style={[styles.editorContainer, Platform.OS === 'web' && { padding: 10 }]}>
+                {Platform.OS === 'web' ? (
+                    <TextInput
+                        style={{ flex: 1, minHeight: 300, color: Colors.text, fontSize: 16 }}
+                        multiline
+                        placeholder="Start typing your note here... (Rich Text disabled in Web Simulation)"
+                        placeholderTextColor={Colors.textMuted}
+                        value={editorContent.replace(/<[^>]*>?/gm, '')} // Strip HTML for plain text view
+                        onChangeText={(text) => setEditorContent(text)}
+                    />
+                ) : (
+                    <RichEditor
+                        ref={richText}
+                        initialContentHTML={editorContent}
+                        onChange={(descriptionText) => {
+                            setEditorContent(descriptionText);
+                        }}
+                        placeholder="Start typing your note here..."
+                        editorStyle={{
+                            backgroundColor: Colors.background,
+                            color: Colors.text,
+                            placeholderColor: Colors.textMuted,
+                            cssText: `
+                                body { font-family: sans-serif; font-size: 16px; margin: 0; padding: 10px 0; }
+                                h1 { font-size: 24px; color: ${Colors.primary}; }
+                                h2 { font-size: 20px; }
+                            `
+                        }}
+                        useContainer={false} 
+                    />
+                )}
             </View>
 
             {/* Media Block */}
@@ -214,13 +251,25 @@ export const NoteEditor = ({
                             >
                                 <TouchableOpacity activeOpacity={0.9}>
                                     {item.type === 'image' ? (
-                                        <Image
-                                            source={{ uri: item.url }}
-                                            style={styles.mediaItem}
-                                            resizeMode="cover"
-                                        />
+                                        <View style={styles.mediaItem}>
+                                            {idx <= loadedIndex ? (
+                                                <Image
+                                                    source={{ uri: item.url }}
+                                                    style={styles.mediaItemContent}
+                                                    resizeMode="cover"
+                                                    onLoad={idx === loadedIndex ? handleMediaLoadNext : undefined}
+                                                    onError={idx === loadedIndex ? handleMediaLoadNext : undefined}
+                                                />
+                                            ) : (
+                                                <View style={styles.loadingPlaceholder}>
+                                                    <ActivityIndicator size="small" color={Colors.primary} />
+                                                </View>
+                                            )}
+                                        </View>
                                     ) : (
-                                        <VideoItem url={item.url} />
+                                        <View style={styles.mediaItem}>
+                                            <VideoItem url={item.url} />
+                                        </View>
                                     )}
                                 </TouchableOpacity>
                                 
@@ -287,7 +336,9 @@ const styles = StyleSheet.create({
   // Media Grid
   mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 10 },
   mediaWrapper: { width: MEDIA_ITEM_SIZE, position: 'relative' },
-  mediaItem: { width: MEDIA_ITEM_SIZE, height: MEDIA_ITEM_SIZE, borderRadius: 10, backgroundColor: '#0F172A' },
+  mediaItem: { width: MEDIA_ITEM_SIZE, height: MEDIA_ITEM_SIZE, borderRadius: 10, backgroundColor: '#0F172A', overflow: 'hidden' },
+  mediaItemContent: { width: '100%', height: '100%' },
+  loadingPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
   mediaFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingHorizontal: 2 },
   mediaUploadedBy: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600', flex: 1 },
   mediaTime: { color: Colors.textMuted, fontSize: 10 },

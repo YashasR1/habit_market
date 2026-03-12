@@ -1,4 +1,5 @@
 import React, { createContext, useContext } from "react";
+import { Platform, Alert } from "react-native";
 
 import { calculateCandle } from "../utils/habitMarketEngine";
 import * as Haptics from "expo-haptics";
@@ -30,6 +31,10 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     userAvatar,
     setUserAvatar,
     isLoaded,
+    notes,
+    setNotes,
+    folders,
+    setFolders,
     // #2: Settings from persistence
     soundEnabled,
     setSoundEnabled,
@@ -53,6 +58,18 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
   const updateUserName = async (name: string) => {
     const formattedName = name.trim().toLowerCase();
 
+    // WEB SIMULATION: Bypass Firebase auth completely and store temporarily
+    if (Platform.OS === 'web') {
+      setUserName(formattedName);
+      setIsUsernameClaimed(true);
+      try {
+        sessionStorage.setItem('web_userName', formattedName);
+      } catch (e) {
+        console.warn("Could not save to sessionStorage", e);
+      }
+      return { success: true };
+    }
+
     // Fallback if not specifically online
     try {
       if (!auth.currentUser) await signInAnonymously(auth);
@@ -72,9 +89,12 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
       setUserName(formattedName);
       setIsUsernameClaimed(true);
       return { success: true };
-    } catch (e) {
-      console.error("Failed to claim username:", e);
-      return { success: false, error: "Network error. Try again later." };
+    } catch (e: any) {
+      console.warn("Firebase Sync Warning:", e.message);
+      // Gracefully fallback to local storage if Firebase rejects the connection (e.g. Missing permissions rule)
+      setUserName(formattedName);
+      setIsUsernameClaimed(true);
+      return { success: true, error: "Saved locally. Cloud sync is currently unavailable." };
     }
   };
 
@@ -124,6 +144,14 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Toggle a habit for "Today" (Home Screen)
   const toggleHabit = (id: string) => {
+    if (Platform.OS === "web") {
+      Alert.alert(
+        "Simulation Mode",
+        "On the Mobile app, completing a habit permanently boosts your Streak score and affects your dynamic Market Cap on the Chart!\n\nDownload the App to start trading habits."
+      );
+      // We do not return early here anymore because we want sessionStorage to persist this state.
+    }
+
     // #2: Guard haptics and sounds
     if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (soundEnabled) Sounds.playPop();
@@ -229,6 +257,14 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const addHabit = (title: string, icon: string) => {
+    if (Platform.OS === "web") {
+      Alert.alert(
+        "Simulation Mode",
+        `Creating a new habit called "${title}"! In the real app, this will permanently sit on your dashboard and contribute to your Daily Closing Price.`
+      );
+      // Let local state mutate to allow sessionStorage to persist Web habits
+    }
+
     const newHabit = {
       // Bug fix: concat two random strings to guarantee a reliably long unique ID
       id:
@@ -286,6 +322,10 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
         setSoundEnabled,
         hapticsEnabled,
         setHapticsEnabled,
+        notes,
+        setNotes,
+        folders,
+        setFolders,
       }}
     >
       {children}

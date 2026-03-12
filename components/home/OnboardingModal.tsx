@@ -139,6 +139,7 @@ const styles = StyleSheet.create({
     padding: 30,
     borderRadius: 20,
     width: "100%",
+    maxWidth: 500,
     alignItems: "center",
   },
   onboardingTitle: {
