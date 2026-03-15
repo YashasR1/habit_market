@@ -1,18 +1,42 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// expo-notifications Android push support was removed from Expo Go in SDK 53.
+// We only set the notification handler when running in a real app build,
+// or on iOS (which still works fine in Expo Go).
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+if (!isExpoGo || Platform.OS !== 'android') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+
+  // Set up a branded Android notification channel for birthday reminders.
+  // This gives the notification the app's icon and accent color instead of
+  // the default Expo Go placeholder icon.
+  if (Platform.OS === 'android') {
+    Notifications.setNotificationChannelAsync('birthdays', {
+      name: 'Birthday Reminders',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#818CF8',        // App primary color
+      sound: 'default',
+      enableVibrate: true,
+      showBadge: false,
+    });
+  }
+}
 
 export const requestNotificationPermissions = async () => {
   if (Platform.OS === 'web') return false;
+  if (isExpoGo && Platform.OS === 'android') return false; // Not supported in Expo Go on Android (SDK 53+)
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
@@ -31,6 +55,7 @@ export const scheduleBirthdayNotification = async (
   dateString: string // YYYY-MM-DD
 ) => {
   if (Platform.OS === 'web') return;
+  if (isExpoGo && Platform.OS === 'android') return; // Not supported in Expo Go on Android (SDK 53+)
 
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
@@ -57,7 +82,7 @@ export const scheduleBirthdayNotification = async (
     },
     trigger: {
       type: Notifications.AndroidNotificationPriority.HIGH, // Fixed trigger type issue causing typing error
-      channelId: 'default',
+      channelId: 'birthdays',
       // Workaround for expo-notifications Calendar trigger not being fully cross-platform compatible
       // Note: We use the Date object for the initial trigger. 
       // A more robust implementation for repeating might require a background task or push server,
@@ -76,6 +101,7 @@ export const scheduleBirthdayNotification = async (
 
 export const cancelBirthdayNotification = async (birthdayId: string) => {
     if (Platform.OS === 'web') return;
+    if (isExpoGo && Platform.OS === 'android') return; // Not supported in Expo Go on Android (SDK 53+)
     
     // In a fully robust app, we'd store the scheduled notification identifier returned by
     // scheduleNotificationAsync in the database. For now, we cancel by scanning the scheduled queue.

@@ -22,8 +22,8 @@ import { PodTopBar } from "../../components/pod/PodTopBar";
 import { PodModalsManager } from "../../components/pod/PodModalsManager";
 
 // Hooks
-import { usePodEditor } from "../hooks/usePodEditor";
-import { usePodModals } from "../hooks/usePodModals";
+import { usePodEditor } from "../_hooks/usePodEditor";
+import { usePodModals } from "../_hooks/usePodModals";
 
 const { width } = Dimensions.get("window");
 
@@ -128,7 +128,7 @@ export default function PodScreen() {
             isCreating={editor.isCreating}
             handleDelete={editor.handleDelete}
             handleSave={editor.handleSave}
-            handleFetchCloud={() => fetchFromCloud && fetchFromCloud(userName, setIsCloudLoading)}
+            handleFetchCloud={() => fetchFromCloud && fetchFromCloud(setIsCloudLoading)}
             isCloudLoading={isCloudLoading}
         />
 
