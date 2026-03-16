@@ -22,8 +22,8 @@ import { PodTopBar } from "../../components/pod/PodTopBar";
 import { PodModalsManager } from "../../components/pod/PodModalsManager";
 
 // Hooks
-import { usePodEditor } from "../_hooks/usePodEditor";
-import { usePodModals } from "../_hooks/usePodModals";
+import { usePodEditor } from "../../hooks/usePodEditor";
+import { usePodModals } from "../../hooks/usePodModals";
 
 const { width } = Dimensions.get("window");
 

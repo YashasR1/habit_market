@@ -18,7 +18,7 @@ import { ArrowLeft, Trash2, Plus, Cake, CalendarClock, Calendar } from 'lucide-r
 import * as Haptics from 'expo-haptics';
 
 import { Colors } from '../constants/Colors';
-import { useBirthdays } from './_hooks/useBirthdays';
+import { useBirthdays } from '../hooks/useBirthdays';
 import { scheduleBirthdayNotification, cancelBirthdayNotification } from '../services/notificationService';
 
 // ─── Date Picker Data ─────────────────────────────────────────────────────────
