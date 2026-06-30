@@ -1,34 +1,28 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { ChevronRight, MoreVertical, Trash2, Save, CloudDownload } from 'lucide-react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { ChevronRight, MoreVertical, Trash2, Save } from 'lucide-react-native';
 import { Colors } from '../../constants/Colors';
 
 interface PodTopBarProps {
     isSidebarOpen: boolean;
     toggleSidebar: () => void;
-    activeProject: any;
     activeCategory: string;
     folders: any[];
     selectedNote: any;
     isCreating: boolean;
     handleDelete: () => void;
     handleSave: () => void;
-    handleFetchCloud?: () => void;
-    isCloudLoading?: boolean;
 }
 
 export const PodTopBar = ({
     isSidebarOpen,
     toggleSidebar,
-    activeProject,
     activeCategory,
     folders,
     selectedNote,
     isCreating,
     handleDelete,
     handleSave,
-    handleFetchCloud,
-    isCloudLoading,
 }: PodTopBarProps) => {
     return (
         <View style={styles.topBar}>
@@ -42,19 +36,13 @@ export const PodTopBar = ({
           <View style={styles.breadcrumbs}>
             <Text style={styles.breadcrumbText}>Pod</Text>
             <ChevronRight size={14} color={Colors.textMuted} />
-            {activeProject ? (
-                 <Text style={[styles.breadcrumbText, { color: Colors.primary, fontWeight: 'bold' }]}>
-                    {activeProject.name}
-                 </Text>
-            ) : (
-                <Text style={styles.breadcrumbText}>
-                {activeCategory === "all"
-                    ? "Library"
-                    : folders.find((c: any) => c.id === activeCategory)?.label || "Folder"}
-                </Text>
-            )}
+            <Text style={styles.breadcrumbText}>
+            {activeCategory === "all"
+                ? "Library"
+                : folders.find((c: any) => c.id === activeCategory)?.label || "Folder"}
+            </Text>
             
-            {selectedNote && !activeProject && (
+            {selectedNote && (
               <>
                 <ChevronRight size={14} color={Colors.textMuted} />
                 <Text
@@ -65,26 +53,10 @@ export const PodTopBar = ({
                 </Text>
               </>
             )}
-            
-            {activeProject && (
-                <>
-                    <ChevronRight size={14} color={Colors.textMuted} />
-                    <Text style={[styles.breadcrumbText, { color: Colors.text }]}>Live Log</Text>
-                </>
-            )}
           </View>
 
           <View style={styles.topActions}>
-            {!activeProject && !selectedNote && !isCreating && handleFetchCloud && (
-              <TouchableOpacity onPress={handleFetchCloud} style={styles.iconBtn} disabled={isCloudLoading}>
-                {isCloudLoading ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                  <CloudDownload color={Colors.primary} size={22} />
-                )}
-              </TouchableOpacity>
-            )}
-           {(selectedNote || isCreating) && !activeProject && (
+           {(selectedNote || isCreating) && (
              <>
                {selectedNote && (
                  <TouchableOpacity

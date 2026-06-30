@@ -113,12 +113,16 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
     const completionRate =
       habitsToUse.length > 0 ? completedCount / habitsToUse.length : 0;
 
-    // Get the current chart history up to today for accurate cumulative metrics
-    const chartHistory = chartData;
+    // Exclude today's candle from the history passed to calculateCandle 
+    // so it calculates based on yesterday's true close, fixing the "undo" bug.
+    const todayDateStr = new Date().toDateString();
+    const historyUpToYesterday = chartData.filter((c: any) => 
+        new Date(c.timestamp).toDateString() !== todayDateStr
+    );
 
     // HIGH #1: Generate today's live candle (no hardcoded gap times, cumulative market rules)
     const todayCandle = calculateCandle(
-      chartHistory,
+      historyUpToYesterday,
       completionRate,
       habitsToUse.length,
     );

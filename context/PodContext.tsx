@@ -1,12 +1,5 @@
-import React, { createContext, useContext, useEffect } from 'react';
-import { Platform } from 'react-native';
+import React, { createContext, useContext } from 'react';
 import { useHabits } from './HabitContext';
-import { useClientProjects } from './hooks/useClientProjects';
-import { useSync } from './SyncContext';
-import { auth, db } from '../firebaseConfig';
-import { collection, onSnapshot, query, orderBy, limit, doc, setDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { NotificationService } from '../utils/NotificationService';
 
 const PodContext = createContext<any>(null);
 
@@ -20,96 +13,7 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
         isLoaded: isPersistenceLoaded
     } = useHabits();
 
-    const { triggerSync } = useSync();
-
-    const {
-        clientProjects,
-        sharedFolders,
-        isLoaded: isProjectsLoaded,
-        addClientProject,
-        deleteClientProject,
-        updateClientProject,
-        addProjectMedia,
-        deleteProjectMedia,
-        addSharedFolder,
-        migrateSharedFolder,
-        updateSharedFolder,
-        deleteSharedFolder,
-        fetchFromCloud
-    } = useClientProjects(userName, triggerSync);
-
-    const isLoaded = isPersistenceLoaded && isProjectsLoaded;
-
-    // --- REGISTER UID → USERNAME MAPPING ---
-    // Firestore rules check: get(/users/{createdBy}).uid == request.auth.uid
-    // This effect writes that mapping so ownership checks pass for anonymous auth users.
-    useEffect(() => {
-        if (Platform.OS === 'web') return;
-        if (!isLoaded || !userName) return;
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                setDoc(doc(db, 'users', userName), { uid: user.uid }, { merge: true })
-                    .catch((err: any) => {
-                        if (!err.message?.includes('permissions')) {
-                            console.error('[AUTH] Failed to register user mapping:', err);
-                        }
-                    });
-            }
-        });
-        return () => unsubscribe();
-    }, [isLoaded, userName]);
-
-    // --- MIGRATION: Local Assign folders -> Firestore ---
-    useEffect(() => {
-        if (isLoaded && folders.length > 0) {
-            const localAssignFolders = folders.filter((f: any) => f.section === 'assign');
-            if (localAssignFolders.length > 0) {
-                console.log("Migrating local ASSIGN folders to cloud...");
-                localAssignFolders.forEach(async (folder: any) => {
-                    await migrateSharedFolder(folder);
-                });
-                // Clear them from local state so we don't migrate again
-                setFolders((prev: any) => prev.filter((f: any) => f.section !== 'assign'));
-            }
-        }
-    }, [isLoaded, folders, migrateSharedFolder, setFolders]);
-
-    // --- NOTIFICATIONS: Listen for peer activity ---
-    useEffect(() => {
-        if (Platform.OS === 'web') return;
-        if (!isLoaded || !userName) return;
-
-        // 2. Listen for NEW activity only (from now onwards)
-        const startTime = new Date().toISOString();
-        
-        const activityQuery = query(
-            collection(db, "collaborative_notifications"),
-            orderBy("timestamp", "desc"),
-            limit(1)
-        );
-
-        const unsubscribe = onSnapshot(activityQuery, (snapshot: any) => {
-            snapshot.docChanges().forEach((change: any) => {
-                if (change.type === "added") {
-                    const data = change.doc.data();
-                    
-                    if (data.source !== userName && data.timestamp >= startTime) {
-                        const icon = data.action.includes('folder') ? '📁' : 
-                                    data.action.includes('project') ? '📝' : 
-                                    data.action.includes('image') ? '🖼️' :
-                                    data.action.includes('video') ? '🎥' : '🔔';
-                                    
-                        NotificationService.sendLocalNotification(
-                            "MARHABS",
-                            `${icon} ${data.source} ${data.action}: ${data.label}`
-                        );
-                    }
-                }
-            });
-        });
-
-        return () => unsubscribe();
-    }, [isLoaded, userName]);
+    const isLoaded = isPersistenceLoaded;
 
     // Note operations
     const addNote = (title: string, content: string, type: string = 'note') => {
@@ -141,36 +45,20 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     // Folder operations
-    const addFolder = (name: string, section: string = 'library', assignedTo?: string) => {
-        if (section === 'assign') {
-            addSharedFolder(name, userName, assignedTo);
-        } else {
-            const newFolder = {
-                id: Math.random().toString(36).substring(7),
-                label: name,
-                icon: 'Folder',
-                type: 'user',
-                section
-            };
-            setFolders((prev: any) => [...prev, newFolder]);
-        }
+    const addFolder = (name: string, section: string = 'library') => {
+        const newFolder = {
+            id: Math.random().toString(36).substring(7),
+            label: name,
+            icon: 'Folder',
+            type: 'user',
+            section
+        };
+        setFolders((prev: any) => [...prev, newFolder]);
     };
 
     const deleteFolder = (id: string, name: string) => {
-        const isShared = sharedFolders.some((f: any) => f.id === id);
-
-        if (isShared) {
-            deleteSharedFolder(id, name, userName);
-        } else {
-            setFolders((prev: any) => prev.filter((f: any) => f.id !== id));
-        }
-
+        setFolders((prev: any) => prev.filter((f: any) => f.id !== id));
         setNotes((prev: any) => prev.filter((n: any) => n.type !== id));
-        
-        const projectsToDelete = clientProjects.filter((p: any) => p.folderId === id);
-        projectsToDelete.forEach((p: any) => {
-            deleteClientProject(p.id, p.name, userName);
-        });
     };
 
     return (
@@ -181,25 +69,9 @@ export const PodProvider = ({ children }: { children: React.ReactNode }) => {
             deleteNote,
             addNoteMedia,
             deleteNoteMedia,
-            folders: [
-                ...folders.filter((f: any) => f.section !== 'assign'), 
-                ...sharedFolders.filter((f: any) => !f.createdBy || f.createdBy.toLowerCase() === userName.toLowerCase() || (f.assignedTo && f.assignedTo.toLowerCase() === userName.toLowerCase()))
-            ],
+            folders: folders.filter((f: any) => f.section !== 'assign'),
             addFolder,
             deleteFolder,
-            clientProjects: clientProjects.filter((p: any) => !p.createdBy || p.createdBy.toLowerCase() === userName.toLowerCase() || (p.assignedTo && p.assignedTo.toLowerCase() === userName.toLowerCase())),
-            sharedFolders: sharedFolders.filter((f: any) => !f.createdBy || f.createdBy.toLowerCase() === userName.toLowerCase() || (f.assignedTo && f.assignedTo.toLowerCase() === userName.toLowerCase())),
-            addClientProject: (name: string, folderId: string) => {
-                const folder = sharedFolders.find((f: any) => f.id === folderId) || folders.find((f: any) => f.id === folderId);
-                const assignedTo = folder?.assignedTo;
-                addClientProject(name, folderId, userName, assignedTo);
-            },
-            deleteClientProject: (id: string, name: string) => deleteClientProject(id, name, userName),
-            updateClientProject: (id: string, name: string, updates: any, silent?: boolean) => updateClientProject(id, name, updates, userName, silent),
-            addProjectMedia: (projectId: string, projectName: string, mediaItem: any) => addProjectMedia(projectId, projectName, mediaItem, userName),
-            deleteProjectMedia: (projectId: string, projectName: string, mediaUrl: string) => deleteProjectMedia(projectId, projectName, mediaUrl, userName),
-            updateSharedFolder: (id: string, name: string, assignedTo?: string) => updateSharedFolder(id, name, assignedTo),
-            fetchFromCloud,
             isLoaded
         }}>
             {children}

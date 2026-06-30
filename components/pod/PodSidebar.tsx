@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { 
-    ChevronDown, ChevronRight, Trash2, FileText, Briefcase, Plus, MoreVertical, Edit2
+    ChevronDown, ChevronRight, Trash2, FileText, Plus, MoreVertical, Edit2
 } from 'lucide-react-native';
 import { EmptyState } from '../common/EmptyState';
 
@@ -15,16 +15,11 @@ interface PodSidebarProps {
     onSelectFolder: (id: string) => void;
     notes: any[];
     folders: any[];
-    clientProjects: any[];
     selectedNote: any;
     handleSelectNote: (note: any) => void;
-    activeProject: any;
-    handleSelectProject: (project: any) => void;
-    handleAddFolder: (section: 'library' | 'assign') => void;
+    handleAddFolder: (section: 'library') => void;
     handleCreateNew: () => void;
-    handleCreateNewProject: (folderId: string) => void;
     confirmDeleteFolder: (id: string) => void;
-    confirmDeleteProject: (id: string) => void;
     onEditFolder: (folder: any) => void;
 }
 
@@ -35,16 +30,11 @@ export const PodSidebar = ({
     onSelectFolder,
     notes,
     folders,
-    clientProjects,
     selectedNote,
     handleSelectNote,
-    activeProject,
-    handleSelectProject,
     handleAddFolder,
     handleCreateNew,
-    handleCreateNewProject,
     confirmDeleteFolder,
-    confirmDeleteProject,
     onEditFolder
 }: PodSidebarProps) => {
 
@@ -61,21 +51,15 @@ export const PodSidebar = ({
     if (!isSidebarOpen) return null;
 
     const libraryFolders = folders.filter((f: any) => !f.section || f.section === 'library');
-    const assignFolders = folders.filter((f: any) => f.section === 'assign');
 
-    const renderFolderList = (folderList: any[], isLibrary: boolean) => {
+    const renderFolderList = (folderList: any[]) => {
         return folderList.map((cat: any) => {
           const isActive = activeCategory === cat.id; 
           const isExpanded = expandedFolders[cat.id] !== undefined ? expandedFolders[cat.id] : isActive;
           // Protect core default folders from deletion even if their type was historically set to 'user'
           const isSystem = cat.type === 'system' || ['all', 'idea', 'note', 'todo'].includes(cat.id);
           
-          let items = [];
-          if (isLibrary) {
-              items = notes.filter((n: any) => n.type === cat.id);
-          } else {
-              items = (clientProjects || []).filter((p: any) => p.folderId === cat.id);
-          }
+          let items = notes.filter((n: any) => n.type === cat.id);
   
           return (
               <View key={cat.id}>
@@ -115,51 +99,28 @@ export const PodSidebar = ({
                               </View>
                           ) : (
                               items.map((item: any) => {
-                                  if (isLibrary) {
-                                      // Render Note
-                                      return (
-                                          <TouchableOpacity 
-                                              key={item.id} 
-                                              style={[styles.noteItem, selectedNote?.id === item.id && styles.noteItemActive]}
-                                              onPress={() => handleSelectNote(item)}
-                                          >
-                                              <FileText size={16} color={selectedNote?.id === item.id ? Colors.text : Colors.textSecondary} />
-                                              <Text style={[styles.noteItemText, selectedNote?.id === item.id && styles.noteItemTextActive]} numberOfLines={1}>
-                                                  {item.title || 'Untitled'}
-                                              </Text>
-                                          </TouchableOpacity>
-                                      );
-                                  } else {
-                                      // Render Client Project (Live Log)
-                                      const isProjectActive = activeProject?.id === item.id;
-                                      return (
-                                          <TouchableOpacity 
-                                              key={item.id} 
-                                              style={[styles.noteItem, isProjectActive && styles.noteItemActive]}
-                                              onPress={() => handleSelectProject(item)}
-                                          >
-                                              <Briefcase size={16} color={isProjectActive ? Colors.primary : Colors.textSecondary} />
-                                              <Text style={[styles.noteItemText, isProjectActive && styles.noteItemTextActive]} numberOfLines={1}>
-                                                  {item.name}
-                                              </Text>
-                                              {isProjectActive && (
-                                                  <TouchableOpacity onPress={() => confirmDeleteProject(item.id)} style={{ marginLeft: 'auto' }}>
-                                                      <Trash2 size={14} color={Colors.error} />
-                                                  </TouchableOpacity>
-                                              )}
-                                          </TouchableOpacity>
-                                      );
-                                  }
+                                  return (
+                                      <TouchableOpacity 
+                                          key={item.id} 
+                                          style={[styles.noteItem, selectedNote?.id === item.id && styles.noteItemActive]}
+                                          onPress={() => handleSelectNote(item)}
+                                      >
+                                          <FileText size={16} color={selectedNote?.id === item.id ? Colors.text : Colors.textSecondary} />
+                                          <Text style={[styles.noteItemText, selectedNote?.id === item.id && styles.noteItemTextActive]} numberOfLines={1}>
+                                              {item.title || 'Untitled'}
+                                          </Text>
+                                      </TouchableOpacity>
+                                  );
                               })
                           )}
                           
                           {/* Quick Add Button inside Folder */}
                           <TouchableOpacity 
                               style={[styles.noteItem, { opacity: 0.6 }]}
-                              onPress={() => isLibrary ? handleCreateNew() : handleCreateNewProject(cat.id)}
+                              onPress={() => handleCreateNew()}
                           >
                               <Plus size={16} color={Colors.textSecondary} />
-                              <Text style={styles.noteItemText}>{isLibrary ? 'New Page' : 'New Project'}</Text>
+                              <Text style={styles.noteItemText}>New Page</Text>
                           </TouchableOpacity>
                       </View>
                   )}
@@ -189,7 +150,7 @@ export const PodSidebar = ({
                         <Plus size={14} color={Colors.textSecondary} />
                      </TouchableOpacity>
                 </View>
-                {renderFolderList(libraryFolders, true)}
+                {renderFolderList(libraryFolders)}
                 {libraryFolders.length === 0 && (
                      <EmptyState 
                          title="Empty Library"
@@ -199,28 +160,6 @@ export const PodSidebar = ({
                          onAction={() => handleAddFolder('library')}
                      />
                 )}
-            </View>
-
-            {/* ASSIGN SECTION */}
-            <View style={{ marginTop: 30 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingRight: 15, alignItems: 'center' }}>
-                     {/* HIGH #6: Amber accent to visually distinguish ASSIGN from Library */}
-                     <Text style={[styles.sectionTitle, { color: '#F59E0B' }]}>Assign</Text>
-                     <TouchableOpacity onPress={() => handleAddFolder('assign')}>
-                        <Plus size={14} color="#F59E0B" />
-                     </TouchableOpacity>
-                </View>
-                {renderFolderList(assignFolders, false)}
-                
-                {assignFolders.length === 0 && (
-                     <EmptyState 
-                         title="No Shared Projects"
-                         description="Organize collaborative missions with your clients."
-                         icon="folder"
-                         actionLabel="Create Folder"
-                         onAction={() => handleAddFolder('assign')}
-                     />
-                 )}
             </View>
           </ScrollView>
         </View>

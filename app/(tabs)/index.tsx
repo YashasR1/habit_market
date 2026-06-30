@@ -50,7 +50,7 @@ export default function DailyFocusScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { dailyHabits, updateMarket, addHabit, removeHabit, toggleHabit, pauseHabit, archiveHabit, userName, updateUserName, userAvatar, isUsernameClaimed } = useHabits();
-  const { clientProjects, isLoaded } = usePod();
+  const { isLoaded } = usePod();
   
   // Resolve avatar icon — falls back to CircleUser if default (TrendingUp is profile default, not home default)
   const avatarEntry = userAvatar ? AVATAR_MAP[userAvatar] : null;
@@ -105,23 +105,6 @@ export default function DailyFocusScreen() {
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
   }, []);
-    
-  // Canvas activity widget: find the most recently edited projects (Web Simulation Only)
-  const recentCanvasEdits = useMemo(() => {
-    if (Platform.OS !== 'web') return null;
-    
-    const edited = (clientProjects || [])
-      .filter((p: any) => p.lastEditedAt)
-      .sort((a: any, b: any) => new Date(b.lastEditedAt).getTime() - new Date(a.lastEditedAt).getTime())
-      .slice(0, 5); // Take up to 5
-    if (!edited.length) return null;
-    return edited.map((p: any) => ({
-      projectId: p.id,
-      projectName: p.name,
-      editedBy: p.lastEditedBy || 'Someone',
-      editedAt: p.lastEditedAt
-    }));
-  }, [clientProjects]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -209,7 +192,6 @@ export default function DailyFocusScreen() {
             toggleHabit={toggleHabit}
             setHabitToDelete={setHabitToDelete}
             setIsModalVisible={setIsModalVisible}
-            recentCanvasEdits={recentCanvasEdits}
           />
         </>
       )}

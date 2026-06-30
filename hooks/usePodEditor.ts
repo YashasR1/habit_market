@@ -8,7 +8,6 @@ export const usePodEditor = (
   deleteNote: any,
   activeCategory: string,
   setActiveCategory: any,
-  setActiveProject: any,
   setIsSidebarOpen: any,
   width: number,
 ) => {
@@ -32,7 +31,6 @@ export const usePodEditor = (
     setEditorContent(note.content);
     setEditorType(note.type);
     setIsCreating(false);
-    setActiveProject(null); // Ensure we aren't in project mode
     setActiveCategory(note.type || "all");
     if (width < 768) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -44,28 +42,14 @@ export const usePodEditor = (
     // Logic: If active category is a folder in Library, add note there.
     // If 'all', add to 'note' (Daily) by default.
     const newType =
-      activeCategory === "all" || activeCategory.startsWith("project_")
-        ? "note"
-        : activeCategory;
+      activeCategory === "all" ? "note" : activeCategory;
 
     setIsCreating(true);
     setSelectedNote(null);
-    setActiveProject(null);
     setEditorTitle("");
     setEditorContent("");
     setEditorType(newType);
     if (width < 768) setIsSidebarOpen(false);
-  };
-
-  const handleSelectProject = (project: any) => {
-      setActiveProject(project);
-      setActiveCategory(`project_${project.id}`);
-      setSelectedNote(null);
-      setIsCreating(false);
-       if (width < 768) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setIsSidebarOpen(false);
-      }
   };
 
   const handleSave = () => {
@@ -101,7 +85,6 @@ export const usePodEditor = (
     isCreating,
     setIsCreating,
     handleSelectNote,
-    handleSelectProject,
     handleCreateNew,
     handleSave,
     handleDelete,

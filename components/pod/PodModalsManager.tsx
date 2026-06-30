@@ -3,19 +3,14 @@ import { Platform } from 'react-native';
 
 // Modal Components
 import { FolderModal } from "./PodModals/FolderModal";
-import { ProjectModal } from "./PodModals/ProjectModal";
 import { DeleteConfirmModal } from "./PodModals/DeleteConfirmModal";
 import { WebInfoOverlay } from "../web-simulation/WebInfoOverlay";
 
 export const PodModalsManager = ({
     modals,
     addFolder,
-    updateSharedFolder,
     deleteFolder,
-    addClientProject,
-    deleteClientProject,
     setActiveCategory,
-    setActiveProject,
 }: any) => {
 
     return (
@@ -31,20 +26,15 @@ export const PodModalsManager = ({
                 }}
                 title="POD Architecture"
                 introHighlightText="Simulation Mode"
-                introRestText="of HabitMarket. The POD (Proof of Daily) is your secure workspace to organize offline projects, store active files, and collaborate."
+                introRestText="of HabitMarket. The POD (Proof of Daily) is your secure workspace to organize offline projects and store active files."
                 features={[
                     {
                         title: "Library (Note-taking)",
                         description: "In the Native App, the Library provides local-first offline Markdown editors for Ideas, Todos, and Journals. Data persists to your secure SQLite vault instantly.",
                         icon: "arrow"
-                    },
-                    {
-                        title: "Assign (Collaboration)",
-                        description: "Create structured Canvas Projects here! On Mobile, you can assign folders to friends, securely compress and upload immense photo/video files from your gallery, and build complex Checklists that sync effortlessly via the cloud.",
-                        icon: "arrow"
                     }
                 ]}
-                nativeDisclaimerDesc="For this Interactive Web Simulation, any Projects, Notes, or Dummy Media you generate will stay actively cached until you close this browser tab!"
+                nativeDisclaimerDesc="For this Interactive Web Simulation, any Notes or Dummy Media you generate will stay actively cached until you close this browser tab!"
             />
 
             <FolderModal 
@@ -63,30 +53,11 @@ export const PodModalsManager = ({
                 isEditing={!!modals.folderToEdit}
                 onAddFolder={() => {
                     if (modals.newFolderName.trim()) {
-                        if (modals.folderToEdit) {
-                            updateSharedFolder(modals.folderToEdit.id, modals.newFolderName.trim(), modals.newFolderAssignee.trim());
-                        } else {
-                            addFolder(modals.newFolderName.trim(), modals.targetSection, modals.newFolderAssignee.trim());
-                        }
+                        addFolder(modals.newFolderName.trim(), modals.targetSection);
                         modals.setNewFolderName('');
                         modals.setNewFolderAssignee('');
                         modals.setFolderToEdit(null);
                         modals.setIsFolderModalVisible(false);
-                    }
-                }}
-            />
-
-            {/* --- ADD PROJECT MODAL --- */}
-            <ProjectModal 
-                isVisible={modals.isProjectModalVisible}
-                onClose={() => modals.setIsProjectModalVisible(false)}
-                newProjectName={modals.newProjectName}
-                setNewProjectName={modals.setNewProjectName}
-                onAddProject={() => {
-                    if (modals.newProjectName.trim() && modals.targetFolderId) {
-                        addClientProject(modals.newProjectName.trim(), modals.targetFolderId);
-                        modals.setNewProjectName('');
-                        modals.setIsProjectModalVisible(false);
                     }
                 }}
             />
@@ -101,22 +72,6 @@ export const PodModalsManager = ({
                     if (modals.folderToDelete) {
                         deleteFolder(modals.folderToDelete.id, modals.folderToDelete.label);
                         modals.setFolderToDelete(null);
-                        setActiveCategory('all');
-                    }
-                }}
-            />
-            
-            {/* --- DELETE PROJECT CONFIRMATION MODAL --- */}
-            <DeleteConfirmModal 
-                isVisible={!!modals.projectToDelete}
-                onClose={() => modals.setProjectToDelete(null)}
-                title="Delete Project?"
-                description="This will delete the project history. This action cannot be undone."
-                onDelete={() => {
-                    if (modals.projectToDelete) {
-                        deleteClientProject(modals.projectToDelete.id, modals.projectToDelete.name);
-                        modals.setProjectToDelete(null);
-                        setActiveProject(null);
                         setActiveCategory('all');
                     }
                 }}
