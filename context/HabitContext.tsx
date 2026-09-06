@@ -58,44 +58,18 @@ export const HabitProvider = ({ children }: { children: React.ReactNode }) => {
   const updateUserName = async (name: string) => {
     const formattedName = name.trim().toLowerCase();
 
-    // WEB SIMULATION: Bypass Firebase auth completely and store temporarily
+    // Store username locally (bypass Firestore username checks)
+    setUserName(formattedName);
+    setIsUsernameClaimed(true);
+
     if (Platform.OS === 'web') {
-      setUserName(formattedName);
-      setIsUsernameClaimed(true);
       try {
         sessionStorage.setItem('web_userName', formattedName);
       } catch (e) {
         console.warn("Could not save to sessionStorage", e);
       }
-      return { success: true };
     }
-
-    // Fallback if not specifically online
-    try {
-      if (!auth.currentUser) await signInAnonymously(auth);
-
-      const userRef = doc(db, "users", formattedName);
-      const docSnap = await getDoc(userRef);
-
-      if (docSnap.exists() && docSnap.data().uid !== auth.currentUser?.uid) {
-        return { success: false, error: "Username is already taken globally." };
-      }
-
-      await setDoc(
-        userRef,
-        { uid: auth.currentUser?.uid, claimedAt: serverTimestamp() },
-        { merge: true },
-      );
-      setUserName(formattedName);
-      setIsUsernameClaimed(true);
-      return { success: true };
-    } catch (e: any) {
-      console.warn("Firebase Sync Warning:", e.message);
-      // Gracefully fallback to local storage if Firebase rejects the connection (e.g. Missing permissions rule)
-      setUserName(formattedName);
-      setIsUsernameClaimed(true);
-      return { success: true, error: "Saved locally. Cloud sync is currently unavailable." };
-    }
+    return { success: true };
   };
 
   const updateUserAvatar = (avatar: string) => {

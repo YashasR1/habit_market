@@ -1,33 +1,28 @@
-import { createAudioPlayer, AudioPlayer } from 'expo-audio';
+import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 
 // Using a reliable source (Wikipedia Commons) for a simple "pop" sound
 // This is a "Cork Pop" sound
-const POP_SOUND_URI = 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Pop_Cork.ogg';
+const POP_SOUND_URI = 'https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav';
 
 class SoundService {
-  private player: AudioPlayer | null = null;
-  private isLoaded: boolean = false;
+  private soundObj: Audio.Sound | null = null;
 
   async playPop() {
     if (Platform.OS === 'web') return;
     try {
-        if (!this.player) {
-             const newSource = { uri: POP_SOUND_URI };
-             this.player = createAudioPlayer(newSource);
+        if (!this.soundObj) {
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: POP_SOUND_URI },
+                { shouldPlay: true }
+            );
+            this.soundObj = sound;
         } else {
-             // Reset back to the start so it plays again on subsequent clicks
-             await this.player.seekTo(0);
+            await this.soundObj.replayAsync();
         }
-        
-        // With expo-audio, we just call play()
-        // It handles loading automatically or we can await prepare()
-        // For simple UI sounds, play() is usually sufficient.
-        this.player.play();
-
     } catch (error) {
       // Fail silently in production to avoid disrupting user
-      console.log('Error playing sound with expo-audio', error);
+      console.log('Error playing sound with expo-av', error);
     }
   }
 }
